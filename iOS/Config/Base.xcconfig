@@ -1,0 +1,18 @@
+// Copy Local.xcconfig.example to Local.xcconfig and set your signing identifiers.
+RELAY_BUNDLE_ID = com.example.relay
+RELAY_APP_GROUP = group.com.example.relay
+RELAY_KEYCHAIN_GROUP = com.example.relay.shared
+// Override for production. xcconfig spells // as /$()/ so it is not parsed as a comment.
+// Example: RELAY_BACKEND_URL = https:/$()/api.example.com
+RELAY_BACKEND_URL =
+DEVELOPMENT_TEAM =
+CODE_SIGN_STYLE = Automatic
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+SWIFT_VERSION = 5.0
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+TARGETED_DEVICE_FAMILY = 1
+SUPPORTS_MACCATALYST = NO
+ENABLE_USER_SCRIPT_SANDBOXING = YES
+SWIFT_STRICT_CONCURRENCY = targeted
+#include? "Local.xcconfig"

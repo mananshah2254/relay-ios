@@ -1,0 +1,29 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+build/
+node_modules/
+.env
+.env.*
+!.env.example
+server/data/
+*.xcuserstate
+xcuserdata/
+iOS/Config/Local.xcconfig
+.test-artifacts/
+client_secret_*.json
+.wrangler/
+.dev.vars*
+server/cloudflare-dist/
+.signing/
+
+# Local publishing materials and signing credentials are not public source.
+release/
+*.p12
+*.p8
+*.mobileprovision
+*.certSigningRequest
+
+# A GitHub token with the workflow scope is needed to publish active Actions files.
+.github/workflows/

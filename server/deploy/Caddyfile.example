@@ -1,0 +1,14 @@
+# Replace with the DNS name pointing to the pilot VM before validating/loading.
+api.yourdomain.com {
+    request_body {
+        max_size 15MB
+    }
+    reverse_proxy 127.0.0.1:8787 {
+        header_up X-Relay-Client-IP {remote_host}
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+    }
+    # Do not enable access logs containing Google callback query parameters.
+}

@@ -1,0 +1,22 @@
+{
+  "name": "relay-referrals-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "preflight": "node --env-file=.env scripts/preflight.mjs",
+    "start": "node --env-file=.env src/index.mjs",
+    "test": "npm run build:cloudflare && node --test test/*.test.mjs",
+    "build:cloudflare": "wrangler deploy --dry-run --outdir cloudflare-dist",
+    "deploy:cloudflare": "wrangler deploy",
+    "check": "node --check src/index.mjs && node --check src/service.mjs && node --check src/providers.mjs"
+  },
+  "devDependencies": {
+    "miniflare": "^5.20260916.0-alpha",
+    "wrangler": "^4.133.0"
+  }
+}

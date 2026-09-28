@@ -1,0 +1,7 @@
+// These are identifiers, not credentials. Never put OAuth secrets in an iOS build.
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+RELAY_BUNDLE_ID = com.yourname.relay
+RELAY_APP_GROUP = group.com.yourname.relay
+RELAY_KEYCHAIN_GROUP = com.yourname.relay.shared
+// For a production archive, use your public HTTPS API origin.
+// RELAY_BACKEND_URL = https:/$()/api.yourdomain.com

@@ -1,0 +1,15 @@
+{
+  "name": "relay-referrals-api",
+  "account_id": "883f9364b8a469785f61a0e34c76ab59",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": { "ALLOW_EXTERNAL_RECIPIENTS": "true" },
+  "observability": { "enabled": false },
+  "durable_objects": {
+    "bindings": [{ "name": "RELAY", "class_name": "RelayPilot" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RelayPilot"] }]
+}
