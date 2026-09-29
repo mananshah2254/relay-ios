@@ -47,6 +47,14 @@ struct SettingsView: View {
                 } else {
                     Section { serviceCard.listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
                 }
+                Section("Help & information") {
+                    Link(destination: URL(string: "https://mananshah2254.github.io/relay-ios/support/")!) {
+                        settingsLabel("Support", detail: "Setup and troubleshooting", symbol: "questionmark.circle", color: .blue)
+                    }
+                    Link(destination: URL(string: "https://mananshah2254.github.io/relay-ios/privacy/")!) {
+                        settingsLabel("Privacy policy", detail: "How your information is handled", symbol: "hand.raised", color: .gray)
+                    }
+                }
             }
             .listStyle(.insetGrouped).scrollContentBackground(.hidden).background(RelayTheme.background)
             .navigationTitle("Settings")

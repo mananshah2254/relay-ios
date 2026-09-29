@@ -361,6 +361,8 @@
 			baseConfigurationReference = 8E0205CD89BF271E3726B26F /* Config/Base.xcconfig */;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/RelayShare.entitlements;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 86FSBA64MY;
@@ -374,6 +376,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.mananshah.relay.share;
+				PROVISIONING_PROFILE_SPECIFIER = "Relay Share App Store 2026";
 				PRODUCT_NAME = RelayShare;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -457,6 +460,8 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_ENTITLEMENTS = Relay/Relay.entitlements;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 86FSBA64MY;
@@ -469,6 +474,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.mananshah.relay;
+				PROVISIONING_PROFILE_SPECIFIER = "Relay App Store 2026";
 				PRODUCT_NAME = Relay;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = NO;

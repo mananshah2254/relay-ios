@@ -68,6 +68,14 @@ for (const [target, files] of [['app', appFiles], ['share', shareFiles]]) {
       DEBUG_INFORMATION_FORMAT: config === 'Debug' ? 'dwarf' : 'dwarf-with-dsym'
     };
     if (isApp) settings.ASSETCATALOG_COMPILER_APPICON_NAME = 'AppIcon';
+    if (config === 'Release') Object.assign(settings, {
+      DEVELOPMENT_TEAM: '86FSBA64MY',
+      RELAY_APP_GROUP: 'group.com.mananshah.relay.production',
+      MARKETING_VERSION: '1.0',
+      CODE_SIGN_STYLE: 'Manual',
+      CODE_SIGN_IDENTITY: 'Apple Distribution',
+      PROVISIONING_PROFILE_SPECIFIER: isApp ? 'Relay App Store 2026' : 'Relay Share App Store 2026'
+    });
     add(`config:${target}:${config}`, `isa = XCBuildConfiguration; baseConfigurationReference = ${id('file:Config/Base.xcconfig')}; buildSettings = { ${Object.entries(settings).map(([k,v]) => `${k} = ${q(v)};`).join(' ')} }; name = ${config};`);
   }
   add(`configlist:${target}`, `isa = XCConfigurationList; buildConfigurations = ${list(['Debug','Release'].map(x => id(`config:${target}:${x}`)))}; defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;`);
