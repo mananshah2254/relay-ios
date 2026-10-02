@@ -36,7 +36,8 @@ private struct CompanySearchPicker: View {
                 Label(searching ? "Searching companies…" : "Find company website", systemImage: "magnifyingglass")
             }
             .buttonStyle(.borderless)
-            .disabled(searching || company.trimmingCharacters(in: .whitespacesAndNewlines).count < 3 || store.isDemo)
+            .disabled(searching || company.trimmingCharacters(in: .whitespacesAndNewlines).count < 3)
+            if store.isDemo { Text("Practice directory: search Example. Results are fictional and use reserved example domains.").font(.footnote).foregroundStyle(RelayTheme.secondary) }
             if searching {
                 HStack(spacing: 10) {
                     RelayActivityMark(compact: true)
@@ -104,6 +105,14 @@ struct JobsView: View {
                         if !store.isDemo && (store.gmailEmail == nil || !store.hunterConnected) {
                             Section { Button { store.selectedTab = .settings } label: { Label("Finish account setup", systemImage: "link") } }
                         }
+                        if let savedName = store.snapshot?.settings.senderName,
+                           savedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Section {
+                                Button { store.selectedTab = .templates } label: {
+                                    Label("Add your sender name", systemImage: "person.crop.circle.badge.plus")
+                                }
+                            } footer: { Text("Open Templates, enter your name, and tap Save before finding contacts.") }
+                        }
                         Section {
                             Picker("Job status", selection: $filter) {
                                 ForEach(CampaignFilter.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -112,7 +121,7 @@ struct JobsView: View {
                         Section {
                             if store.campaigns.isEmpty {
                                 RelayEmptyState(symbol: "briefcase", title: "Start with an opportunity", detail: "Add a company and role, or share a job from another app.")
-                                Button("Add your first job") { showAddJob = true }.disabled(store.isDemo)
+                                Button("Add your first job") { showAddJob = true }
                             } else if visibleCampaigns.isEmpty {
                                 ContentUnavailableView("No matching jobs", systemImage: "line.3.horizontal.decrease", description: Text("Try another status or search term."))
                                 Button("Clear filters") { searchText = ""; filter = .all }
@@ -145,7 +154,7 @@ struct JobsView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showAddJob = true } label: { Image(systemName: "plus").fontWeight(.semibold) }
                             .accessibilityLabel("Add a job")
-                            .disabled(store.isDemo || store.isBusy)
+                            .disabled(store.isBusy)
                     }
                 }
             }
@@ -374,7 +383,7 @@ private struct AddJobSheet: View {
                     }.buttonStyle(RelayPrimaryButtonStyle()).disabled(
                         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                         company.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                        store.isBusy || store.isDemo || isPrefilling
+                        store.isBusy || isPrefilling
                     )
                 }.padding(20)
             }
@@ -411,7 +420,7 @@ struct CampaignDetailView: View {
                                 Label("Lookup interrupted", systemImage: "wifi.exclamationmark").font(.headline)
                                 Text("No results were received. Retry with a longer wait; any recovered emails stay in review.").font(.subheadline).foregroundStyle(RelayTheme.secondary)
                                 Button(store.isBusy ? "Waiting for Hunter…" : "Retry lookup") { showRetryLookup = true }
-                                    .buttonStyle(RelayPrimaryButtonStyle()).disabled(store.isBusy || store.isDemo)
+                                    .buttonStyle(RelayPrimaryButtonStyle()).disabled(store.isBusy)
                             }
                         }
                     }
@@ -422,7 +431,7 @@ struct CampaignDetailView: View {
                                 Text("The last filters returned no matches. This isn’t proof that \(campaign.company) has no verified email addresses.")
                                     .font(.subheadline).foregroundStyle(RelayTheme.secondary)
                                 Button("Broaden verified search") { showBroaden = true }
-                                    .buttonStyle(RelayPrimaryButtonStyle()).disabled(store.isBusy || store.isDemo)
+                                    .buttonStyle(RelayPrimaryButtonStyle()).disabled(store.isBusy)
                                 Text("Same company · verified personal emails · review before sending")
                                     .font(.caption).foregroundStyle(RelayTheme.secondary)
                                 DisclosureGroup("Search details") {
@@ -462,9 +471,9 @@ struct CampaignDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Edit job details", systemImage: "pencil") { showEdit = true }.disabled(store.isDemo || store.isBusy)
-                    Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }.disabled(store.isDemo)
-                    Button("Diagnose contact lookup", systemImage: "stethoscope") { showDiagnostic = true }.disabled(store.isDemo || diagnosing)
+                    Button("Edit job details", systemImage: "pencil") { showEdit = true }.disabled(store.isBusy)
+                    Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
+                    Button("Diagnose contact lookup", systemImage: "stethoscope") { showDiagnostic = true }.disabled(diagnosing)
                     if let campaign = store.campaign(id: id), !campaign.url.isEmpty, let url = URL(string: campaign.url) { Link(destination: url) { Label("Open original job", systemImage: "arrow.up.right.square") } }
                 } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Job actions")
             }
@@ -558,20 +567,20 @@ struct CampaignDetailView: View {
 
     @ViewBuilder private func actionSection(_ campaign: Campaign) -> some View {
         if campaign.status == "ready" && !campaign.messages.isEmpty {
-            RelayNotice(text: "Each person receives a separate email from your connected Gmail. Review their message before approving.", symbol: "envelope")
-            Button("Approve \(campaign.messages.filter { $0.status == "draft" }.count) emails") {
+            RelayNotice(text: store.isDemo ? "Practice only. Approve drafts, then use Simulate next delivery in Outreach. No emails are sent." : "Each person receives a separate email from your connected Gmail. Review their message before approving.", symbol: "envelope")
+            Button("\(store.isDemo ? "Practice approval:" : "Approve") \(campaign.messages.filter { $0.status == "draft" }.count) emails") {
                 Task { await store.approveJob(id: id) }
-            }.buttonStyle(RelayPrimaryButtonStyle()).disabled(store.isBusy || store.isDemo || store.gmailEmail == nil)
+            }.buttonStyle(RelayPrimaryButtonStyle()).disabled(store.isBusy || store.gmailEmail == nil)
         } else if campaign.status == "needs_details" && campaign.contacts.isEmpty {
             Button(campaign.domain.isEmpty ? "Look up company website" : (campaign.domainConfirmed == true ? "Find referral contacts" : "Confirm company and find contacts")) {
                 Task { await store.researchJob(id: id, confirmedDomain: campaign.domain.isEmpty ? nil : campaign.domain) }
             }
                 .buttonStyle(RelayPrimaryButtonStyle())
-                .disabled(store.isBusy || store.isDemo || !store.hunterConnected || campaign.title.isEmpty || campaign.company.isEmpty)
+                .disabled(store.isBusy || !store.hunterConnected || campaign.title.isEmpty || campaign.company.isEmpty)
         }
         if ["researching", "ready", "queued", "sending", "partial"].contains(campaign.status) {
             Button("Cancel remaining outreach", role: .destructive) { showCancel = true }
-                .font(.subheadline).frame(maxWidth: .infinity).padding(8).disabled(store.isBusy || store.isDemo)
+                .font(.subheadline).frame(maxWidth: .infinity).padding(8).disabled(store.isBusy)
         }
     }
 
@@ -633,7 +642,7 @@ private struct EditJobSheet: View {
                             let request = ImportRequest(url: jobURL, title: title, company: company, domain: domain, description: jobDescription)
                             if await store.updateJob(id: campaign.id, request: request) { dismiss() }
                         }
-                    }.disabled(store.isBusy || store.isDemo || title.trimmingCharacters(in: .whitespaces).isEmpty || company.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }.disabled(store.isBusy || title.trimmingCharacters(in: .whitespaces).isEmpty || company.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }.interactiveDismissDisabled(store.isBusy)
             .relayActivityOverlay()

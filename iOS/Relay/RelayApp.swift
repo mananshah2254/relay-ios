@@ -38,7 +38,7 @@ private struct RelayRootView: View {
             if store.isDemo {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkle.magnifyingglass")
-                    Text("Demo · Sample data only").font(.caption.weight(.semibold))
+                    Text("Practice · No real emails").font(.caption.weight(.semibold))
                     Spacer(minLength: 4)
                     Button("Exit") { Task { await store.leaveDemo() } }.font(.caption.weight(.bold)).padding(.vertical, 10)
                 }

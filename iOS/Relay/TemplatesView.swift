@@ -17,6 +17,14 @@ struct TemplatesView: View {
                         RelayNotice(text: "Connect your Relay service in Settings to save a template. You can explore a sample first.")
                     }
                     Section {
+                        TextField("Your full name", text: $store.settings.senderName)
+                            .textContentType(.name)
+                            .textInputAutocapitalization(.words)
+                            .accessibilityLabel("Sender name")
+                    } header: { Text("Sender name") } footer: {
+                        Text("The name used in your email introduction and signature. Enter it here, then tap Save at the top right before finding contacts.")
+                    }
+                    Section {
                         VStack(alignment: .leading, spacing: 12) {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                                 ForEach(RoleTemplate.roles, id: \.self) { role in
@@ -38,9 +46,6 @@ struct TemplatesView: View {
                             }
                         }
                     } header: { Text("Choose a role") } footer: { Text("Each role keeps its own wording. Save your selection before adding a job.") }
-                    Section("From") {
-                        TextField("Your name", text: $store.settings.senderName).textContentType(.name).accessibilityLabel("Sender name")
-                    }
                     Section("Subject") {
                         TextField("Email subject", text: $store.settings.subjectTemplate, axis: .vertical).lineLimit(2...4).accessibilityLabel("Email subject")
                     }
@@ -73,7 +78,7 @@ struct TemplatesView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") { Task { _ = await store.saveSettings() } }
-                        .disabled(store.isBusy || !store.isConnected || !store.hasUnsavedSettings || store.isDemo)
+                        .disabled(store.isBusy || (!store.isConnected && !store.isDemo) || !store.hasUnsavedSettings)
                 }
             }
             .sheet(isPresented: $showPreview) { TemplatePreviewSheet(settings: store.settings) }
@@ -109,14 +114,15 @@ struct ResumeCard: View {
                         }
                         Spacer(minLength: 0)
                         Button { showRemove = true } label: { Image(systemName: "trash").padding(5) }
-                            .foregroundStyle(RelayTheme.secondary).accessibilityLabel("Remove saved résumé").disabled(store.isDemo || store.isBusy)
+                            .foregroundStyle(RelayTheme.secondary).accessibilityLabel("Remove saved résumé").disabled(store.isBusy)
                     }
                     Toggle("Attach to new outreach", isOn: $store.settings.attachResume).font(.subheadline)
                 } else {
                     Text("Optional. Add a PDF from Files and choose whether it accompanies new outreach.").font(.footnote).foregroundStyle(RelayTheme.secondary)
                 }
                 Button(store.resume == nil ? "Choose a PDF" : "Replace résumé") { showImporter = true }
-                    .buttonStyle(RelaySecondaryButtonStyle()).disabled(store.isDemo || !store.isConnected || store.isBusy)
+                    .buttonStyle(RelaySecondaryButtonStyle()).disabled((!store.isConnected && !store.isDemo) || store.isBusy)
+                if store.isDemo { Text("Practice attachments stay in memory. No PDF is uploaded or emailed.").font(.footnote).foregroundStyle(RelayTheme.secondary) }
             }
         }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { result in

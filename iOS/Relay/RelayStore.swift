@@ -24,6 +24,8 @@ final class RelayStore: ObservableObject {
 
     private let browser = GoogleConnectionBrowser()
     private var isRefreshing = false
+    private var demoWorkspace: DemoWorkspace?
+    var simulatedCount: Int { allMessages.filter { $0.status == "simulated" }.count }
 
     var isConnected: Bool { !isDemo && SharedCredentials.token != nil && !connectedServiceURL.isEmpty }
     var campaigns: [Campaign] { snapshot?.campaigns ?? [] }
@@ -72,14 +74,16 @@ final class RelayStore: ObservableObject {
     }
 
     func enterDemo() {
+        demoWorkspace = DemoWorkspace()
         isDemo = true
-        snapshot = .demo
-        settings = AppSnapshot.demo.settings
+        snapshot = demoWorkspace?.snapshot
+        settings = snapshot?.settings ?? .default
         notice = nil
         selectedTab = .jobs
     }
 
     func leaveDemo() async {
+        demoWorkspace = nil
         isDemo = false
         snapshot = nil
         settings = .default
@@ -148,6 +152,7 @@ final class RelayStore: ObservableObject {
     }
 
     func refresh(silently: Bool = false) async {
+        if isDemo { return }
         guard isConnected, !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
@@ -160,7 +165,12 @@ final class RelayStore: ObservableObject {
     }
 
     func saveSettings() async -> Bool {
-        await perform(title: "Saving your preferences", detail: "Updating your template and outreach settings.") {
+        if isDemo {
+            settings.rememberActiveTemplate()
+            let edited = settings
+            return await performDemo { try $0.saveSettings(edited) }
+        }
+        return await perform(title: "Saving your preferences", detail: "Updating your template and outreach settings.") {
             self.settings.rememberActiveTemplate()
             try OutreachValidation.validate(settings: self.settings)
             let saved = try await self.client().updateSettings(self.settings)
@@ -172,14 +182,20 @@ final class RelayStore: ObservableObject {
     }
 
     func searchCompanies(query: String) async throws -> [CompanySuggestion] {
-        try await client().searchCompanies(query: query)
+        if isDemo { return demoWorkspace?.searchCompanies(query) ?? [] }
+        return try await client().searchCompanies(query: query)
     }
     func diagnoseJob(id: String) async -> String {
+        if isDemo { return "Practice mode uses fictional contacts at example.com. No Hunter request or credit was used. Live coverage and verification require a connected provider account." }
         do { return try await client().diagnoseJob(id: id) }
         catch { return error.localizedDescription }
     }
 
     func previewJob(url: String, sharedText: String? = nil) async -> JobPreview? {
+        if isDemo {
+            notice = "Practice mode does not fetch websites. Enter a sample role and company, such as Example Company."
+            return nil
+        }
         do { return try await client().previewJob(ImportRequest(url: url, sharedText: sharedText)) }
         catch { errorMessage = error.localizedDescription; return nil }
     }
@@ -189,7 +205,8 @@ final class RelayStore: ObservableObject {
     }
 
     func connectHunter(apiKey: String) async -> Bool {
-        await perform(title: "Connecting Hunter", detail: "Checking your API key with Hunter. Your key stays private.") {
+        if isDemo { return await performDemo { $0.connectDirectory(true) } }
+        return await perform(title: "Connecting Hunter", detail: "Checking your API key with Hunter. Your key stays private.") {
             let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty else { throw RelayError.message("Paste your Hunter API key first.") }
             _ = try await self.client().connectHunter(apiKey: key)
@@ -200,6 +217,7 @@ final class RelayStore: ObservableObject {
     }
 
     func disconnectHunter() async {
+        if isDemo { _ = await performDemo { $0.connectDirectory(false) }; return }
         _ = await perform {
             try await self.client().disconnectHunter()
             await self.refresh()
@@ -207,6 +225,7 @@ final class RelayStore: ObservableObject {
     }
 
     func connectGoogle() async {
+        if isDemo { _ = await performDemo { $0.connectSender(true) }; return }
         _ = await perform(title: "Connecting Gmail", detail: "Complete Google’s sign-in window to connect your account.") {
             let url = try await self.client().startGoogleConnection()
             try await self.browser.open(url: url)
@@ -219,6 +238,7 @@ final class RelayStore: ObservableObject {
     }
 
     func disconnectGoogle() async {
+        if isDemo { _ = await performDemo { $0.connectSender(false) }; return }
         _ = await perform {
             try await self.client().disconnectGoogle()
             await self.refresh()
@@ -226,7 +246,7 @@ final class RelayStore: ObservableObject {
     }
 
     func uploadResume(url: URL) async -> Bool {
-        await perform(title: "Saving your résumé", detail: "Checking and securely uploading your PDF.") {
+        return await perform(title: "Saving your résumé", detail: isDemo ? "Checking your PDF locally for practice. Nothing is uploaded." : "Checking and securely uploading your PDF.") {
             let access = url.startAccessingSecurityScopedResource()
             defer { if access { url.stopAccessingSecurityScopedResource() } }
             let values = try url.resourceValues(forKeys: [.fileSizeKey])
@@ -235,6 +255,11 @@ final class RelayStore: ObservableObject {
             }
             let data = try Data(contentsOf: url)
             try OutreachValidation.validateResume(filename: url.lastPathComponent, data: data)
+            if self.isDemo {
+                try self.editDemo { try $0.setResume(filename: url.lastPathComponent, data: data) }
+                self.notice = "Practice attachment saved in memory. Nothing uploaded."
+                return
+            }
             _ = try await self.client().uploadResume(filename: url.lastPathComponent, data: data)
             await self.refresh()
             self.notice = "Your résumé is ready to attach."
@@ -242,6 +267,7 @@ final class RelayStore: ObservableObject {
     }
 
     func deleteResume() async {
+        if isDemo { _ = await performDemo { $0.removeResume() }; return }
         _ = await perform {
             try await self.client().deleteResume()
             await self.refresh()
@@ -258,6 +284,12 @@ final class RelayStore: ObservableObject {
         sharedText: String? = nil
     ) async -> String? {
         var importedID: String?
+        if isDemo {
+            _ = await performDemo { demo in
+                importedID = try demo.importJob(ImportRequest(url: url, sharedText: sharedText, title: title, company: company, domain: domain, description: description, clientRequestID: clientRequestID))
+            }
+            return importedID
+        }
         _ = await perform(title: "Preparing your opportunity", detail: "Saving the job and checking available contacts. Hunter can take up to a minute.") {
             let campaign = try await self.client().importJob(ImportRequest(
                 url: url,
@@ -276,7 +308,8 @@ final class RelayStore: ObservableObject {
     }
 
     func updateJob(id: String, request: ImportRequest) async -> Bool {
-        await perform(title: "Updating the opportunity", detail: "Saving company details and checking the lookup result.") {
+        if isDemo { return await performDemo { try $0.updateJob(id: id, request: request) } }
+        return await perform(title: "Updating the opportunity", detail: "Saving company details and checking the lookup result.") {
             let campaign = try await self.client().updateJob(id: id, request: request)
             self.remember(campaign)
             await self.refresh()
@@ -284,6 +317,7 @@ final class RelayStore: ObservableObject {
     }
 
     func researchJob(id: String, confirmedDomain: String? = nil, broadenSearch: Bool? = nil, retryLookup: Bool? = nil) async {
+        if isDemo { _ = await performDemo { try $0.research(id: id, confirmedDomain: confirmedDomain) }; return }
         _ = await perform(title: "Finding relevant people", detail: "Waiting for Hunter’s response. This can take up to a minute.") {
             let campaign = try await self.client().researchJob(id: id, confirmedDomain: confirmedDomain, broadenSearch: broadenSearch, retryLookup: retryLookup)
             self.remember(campaign)
@@ -292,6 +326,7 @@ final class RelayStore: ObservableObject {
     }
 
     func approveJob(id: String) async {
+        if isDemo { _ = await performDemo { try $0.approve(id: id) }; return }
         _ = await perform(title: "Scheduling your introduction", detail: "Confirming the email queue. Gmail submission status appears in Outreach.") {
             let campaign = try await self.client().approveJob(id: id)
             self.remember(campaign)
@@ -300,6 +335,7 @@ final class RelayStore: ObservableObject {
     }
 
     func cancelJob(id: String) async {
+        if isDemo { _ = await performDemo { try $0.cancel(id: id) }; return }
         _ = await perform {
             _ = try await self.client().cancelJob(id: id)
             await self.refresh()
@@ -307,6 +343,7 @@ final class RelayStore: ObservableObject {
     }
 
     func setQueuePaused(_ paused: Bool) async {
+        if isDemo { _ = await performDemo { $0.pause(paused) }; return }
         _ = await perform {
             if paused { _ = try await self.client().pauseQueue() }
             else { _ = try await self.client().resumeQueue() }
@@ -342,7 +379,12 @@ final class RelayStore: ObservableObject {
     }
 
     func deleteAccount() async -> Bool {
-        await perform {
+        if isDemo {
+            await leaveDemo()
+            notice = "Practice data cleared. Your live account was not changed."
+            return true
+        }
+        return await perform {
             try await self.client().deleteAccount()
             try SharedCredentials.saveToken(nil)
             try? SharedInbox.clear()
@@ -363,6 +405,24 @@ final class RelayStore: ObservableObject {
             throw RelayError.message("Connect your Relay service in Settings first.")
         }
         return try APIClient(baseURL: url, token: token)
+    }
+
+    func simulateNextDelivery() async {
+        _ = await performDemo { try $0.simulateNextDelivery() }
+    }
+
+    private func editDemo(_ operation: (inout DemoWorkspace) throws -> Void) throws {
+        guard isDemo, var demo = demoWorkspace else { throw RelayError.message("Open the practice workspace first.") }
+        try operation(&demo)
+        demoWorkspace = demo
+        apply(demo.snapshot, replaceSettings: false)
+    }
+
+    private func performDemo(_ operation: (inout DemoWorkspace) throws -> Void) async -> Bool {
+        await perform(title: "Updating practice workspace", detail: "Simulating the workflow locally. No provider request or real email.") {
+            try self.editDemo(operation)
+            self.notice = "Practice updated. No real email sent."
+        }
     }
 
     private func remember(_ campaign: Campaign) {

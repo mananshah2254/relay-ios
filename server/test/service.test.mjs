@@ -8,6 +8,21 @@ import { ReferralService } from '../src/service.mjs';
 const job = { url: 'https://example.com/jobs/ios', title: 'iOS Engineer', company: 'Example Studio', domain: 'example.com' };
 const account = { id: 'google-user', email: 'sender@example.com', accessToken: 'access', refreshToken: 'refresh', expiresAt: Number.MAX_SAFE_INTEGER };
 
+test('missing sender name points to Templates without spending contact credits or sending', async () => {
+  const { service, store, calls } = makeService();
+  const session = await readyAccount(service, store, { senderName: '' });
+  const campaign = await service.importJob(session.userId, job);
+  assert.match(campaign.note, /Templates.*Sender name.*Save/);
+  assert.equal(campaign.messages.length, 0);
+  assert.equal(calls.searches, 0);
+  assert.equal(calls.sends, 0);
+  await service.setSettings(session.userId, { ...service.getState(session.userId).settings, senderName: 'Taylor' });
+  const recovered = await service.researchJob(session.userId, campaign.id, {});
+  assert.equal(recovered.status, 'ready');
+  assert.equal(calls.searches, 1);
+  assert.equal(calls.sends, 0);
+});
+
 test('ten-minute pacing is shared across jobs and sessions with no catch-up burst', async () => {
   let now = Date.now();
   const { service, store, calls } = makeService({ now: () => now });

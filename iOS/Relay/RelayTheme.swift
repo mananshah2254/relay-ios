@@ -193,13 +193,14 @@ enum RelayStatus {
         case "canceled": "Canceled"
         case "uncertain": "Status unknown"
         case "submitted": "Submitted to Gmail"
+        case "simulated": "Simulated · not sent"
         case "draft": "Draft"
         default: status.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
     static func color(_ status: String) -> Color {
         switch status {
-        case "completed", "submitted": RelayTheme.green
+        case "completed", "submitted", "simulated": RelayTheme.green
         case "failed", "partial", "uncertain", "needs_details": RelayTheme.amber
         case "canceled", "draft": RelayTheme.secondary
         default: RelayTheme.accent

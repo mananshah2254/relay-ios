@@ -25,7 +25,7 @@ struct OutreachView: View {
                         Divider()
                         metric(store.queuedCount, "Queued", "clock", RelayTheme.amber)
                         Divider()
-                        metric(store.submittedCount, "Submitted", "checkmark.circle", RelayTheme.green)
+                        metric(store.isDemo ? store.simulatedCount : store.submittedCount, store.isDemo ? "Simulated" : "Submitted", "checkmark.circle", RelayTheme.green)
                     }.padding(.vertical, 8)
                 }
                 if store.isConnected || store.isDemo {
@@ -42,7 +42,7 @@ struct OutreachView: View {
                             }
                             Spacer(minLength: 4)
                             Button(store.queuePaused ? "Resume" : "Pause") { Task { await store.setQueuePaused(!store.queuePaused) } }
-                                .buttonStyle(.bordered).disabled(store.isBusy || store.isDemo)
+                                .buttonStyle(.bordered).disabled(store.isBusy)
                         }
                     }
                     Section {
@@ -75,7 +75,16 @@ struct OutreachView: View {
                         }
                     }
                 }
-                Section { Text("Submitted means accepted by Gmail—not proof of delivery. Replies arrive in Gmail.").font(.footnote).foregroundStyle(RelayTheme.secondary) }
+                if store.isDemo {
+                    Section("Practice delivery") {
+                        Button("Simulate next delivery", systemImage: "clock.arrow.circlepath") { Task { await store.simulateNextDelivery() } }
+                            .disabled(store.isBusy || store.queuePaused || store.queuedCount == 0)
+                        Text("Advances the practice clock to the next permitted send time, including your spacing and daily limit. No Gmail request is made. Pause, resume or cancel the queue to try those controls.")
+                            .font(.footnote).foregroundStyle(RelayTheme.secondary)
+                    }
+                } else {
+                    Section { Text("Submitted means accepted by Gmail—not proof of delivery. Replies arrive in Gmail.").font(.footnote).foregroundStyle(RelayTheme.secondary) }
+                }
             }
             .listStyle(.insetGrouped).scrollContentBackground(.hidden).background(RelayTheme.background)
             .navigationTitle("Outreach").navigationBarTitleDisplayMode(.large)

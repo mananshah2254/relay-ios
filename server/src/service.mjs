@@ -338,9 +338,9 @@ export class ReferralService {
   async researchInternal(user, campaign) {
     if (!campaign.title || !campaign.company || !campaign.domain) throw new AppError('job_details_missing', 'Add the title, company, and employer website domain.');
     if (campaign.domainConfirmed !== true) throw new AppError('company_confirmation_required', 'Confirm the employer website before finding contacts.');
-    if (!user.hunterKey) throw new AppError('hunter_required', 'Connect Hunter in Setup, then research this job again.');
-    if (!user.google) throw new AppError('gmail_required', 'Connect Gmail in Setup, then research this job again.');
-    if (!user.settings.senderName) throw new AppError('sender_required', 'Save your sender name in Setup, then research this job again.');
+    if (!user.hunterKey) throw new AppError('hunter_required', 'Connect Hunter in Settings > Connected accounts, then research this job again.');
+    if (!user.google) throw new AppError('gmail_required', 'Connect Gmail in Settings > Connected accounts, then research this job again.');
+    if (!user.settings.senderName) throw new AppError('sender_required', 'Open Templates, enter your Sender name at the top, and tap Save. Then research this job again.');
     if (user.settings.attachResume && !user.resume) throw new AppError('resume_required', 'Upload a résumé PDF or switch off the attachment, then research again.');
     if (campaign.budgetReserved) throw new AppError('lookup_budget_spent', 'The contact lookup budget is already reserved for this job.', 409);
     // Reserve the entire budget before the request; a timeout cannot silently cause a second paid lookup.

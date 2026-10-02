@@ -26,6 +26,9 @@ struct SettingsView: View {
                         }.padding(.vertical, 8)
                     }
                     Section("Workspace") {
+                        Button { store.selectedTab = .templates } label: {
+                            settingsLabel("Sender name", detail: "Edit your name in Templates, then tap Save", symbol: "person.crop.circle", color: .blue)
+                        }.foregroundStyle(RelayTheme.ink)
                         NavigationLink { settingsPage("Connections") { serviceCard; connectionsCard } } label: {
                             settingsLabel("Connected accounts", detail: "Gmail, Hunter & Relay", symbol: "link", color: .blue)
                         }
@@ -43,15 +46,23 @@ struct SettingsView: View {
                     } header: { Text("Privacy") } footer: {
                         Text("Relay sends through your Gmail. It does not read your inbox or track opens.")
                     }
-                    if store.isDemo { Section { Button("Exit demo") { Task { await store.leaveDemo() } } } }
+                    Section("Practice workspace") {
+                        if store.isDemo {
+                            Text("Try jobs, templates, attachments, approvals and delivery with fictional contacts. Connections and sends are simulated. Practice data clears when you exit or close the app.").font(.footnote).foregroundStyle(.secondary)
+                            Button("Reset practice workspace") { store.enterDemo() }
+                            Button("Exit practice") { Task { await store.leaveDemo() } }
+                        } else {
+                            Button("Explore the demo") { store.enterDemo() }
+                        }
+                    }
                 } else {
                     Section { serviceCard.listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
                 }
                 Section("Help & information") {
-                    Link(destination: URL(string: "https://mananshah2254.github.io/relay-ios/support/")!) {
+                    Link(destination: URL(string: "https://relay.trailmails.com/support/")!) {
                         settingsLabel("Support", detail: "Setup and troubleshooting", symbol: "questionmark.circle", color: .blue)
                     }
-                    Link(destination: URL(string: "https://mananshah2254.github.io/relay-ios/privacy/")!) {
+                    Link(destination: URL(string: "https://relay.trailmails.com/privacy/")!) {
                         settingsLabel("Privacy policy", detail: "How your information is handled", symbol: "hand.raised", color: .gray)
                     }
                 }
@@ -62,11 +73,11 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.large)
             .refreshable { await store.refresh() }
             .onAppear { serviceURL = AppEnvironment.backendURL }
-            .confirmationDialog("Delete your Relay account and stored outreach?", isPresented: $showDeleteAccount, titleVisibility: .visible) {
-                Button("Delete account", role: .destructive) { Task { _ = await store.deleteAccount() } }
+            .confirmationDialog(store.isDemo ? "Clear the practice workspace?" : "Delete your Relay account and stored outreach?", isPresented: $showDeleteAccount, titleVisibility: .visible) {
+                Button(store.isDemo ? "Clear practice data" : "Delete account", role: .destructive) { Task { _ = await store.deleteAccount() } }
                 Button("Keep account", role: .cancel) {}
             } message: {
-                Text("This removes the Relay session, résumé, templates, campaigns, and saved provider connections. Emails already submitted to Gmail cannot be recalled.")
+                Text(store.isDemo ? "Clears only the temporary practice data and returns to your live workspace. No live account or queued email is changed." : "This removes the Relay session, résumé, templates, campaigns, and saved provider connections. Emails already submitted to Gmail cannot be recalled.")
             }
         }
     }
@@ -142,6 +153,17 @@ struct SettingsView: View {
     private var connectionsCard: some View {
         RelayCard {
             VStack(alignment: .leading, spacing: 16) {
+                if store.isDemo {
+                    RelaySectionHeading(title: "Sample connections", detail: "No Google sign-in or API key is used in practice mode.")
+                    connectionRow(title: "Sample sender", detail: store.gmailEmail ?? "Not connected", symbol: "envelope")
+                    Button(store.gmailEmail == nil ? "Enable sample sender" : "Disconnect sample sender") {
+                        Task { if store.gmailEmail == nil { await store.connectGoogle() } else { await store.disconnectGoogle() } }
+                    }.buttonStyle(RelaySecondaryButtonStyle())
+                    Button(store.hunterConnected ? "Disconnect sample directory" : "Enable sample directory") {
+                        Task { if store.hunterConnected { await store.disconnectHunter() } else { _ = await store.connectHunter(apiKey: "") } }
+                    }.buttonStyle(RelaySecondaryButtonStyle())
+                    Text("Live mode uses Gmail OAuth and your Hunter account. Practice mode does not test or grant those permissions.").font(.footnote).foregroundStyle(.secondary)
+                } else {
                 RelaySectionHeading(title: "Your accounts", detail: "Your Gmail sends the emails. Your Hunter account supplies the contacts.")
                 connectionRow(title: "Gmail", detail: store.gmailEmail ?? "Not connected", symbol: "envelope")
                 if store.gmailEmail == nil {
@@ -175,6 +197,7 @@ struct SettingsView: View {
                         .font(.footnote.weight(.semibold)).frame(maxWidth: .infinity).padding(5).disabled(store.isBusy)
                 }
                 RelayNotice(text: "Hunter searches for verified professional addresses. It cannot confirm who is the hiring manager, and results may be fewer than your limit.", symbol: "info.circle")
+                }
             }
         }
     }
@@ -220,7 +243,7 @@ struct SettingsView: View {
                     Task { _ = await store.saveSettings() }
                 }
                 .buttonStyle(RelayPrimaryButtonStyle())
-                .disabled(store.isBusy || store.isDemo || !store.hasUnsavedSettings)
+                .disabled(store.isBusy || !store.hasUnsavedSettings)
             }
         }
     }
@@ -246,9 +269,9 @@ struct SettingsView: View {
         RelayCard {
             VStack(alignment: .leading, spacing: 14) {
                 RelaySectionHeading(title: "Data & account", detail: "Relay does not read your Gmail inbox or track opens.")
-                Text("Your résumé, templates, provider tokens, and campaign snapshots are stored by the connected backend. Review the service's deployment and privacy policy before using real outreach.")
+                Text(store.isDemo ? "This practice workspace is held only in memory. It does not access your live credentials, upload your files or send emails. Exit practice to clear it." : "Your résumé, templates, provider tokens, and campaign snapshots are stored by the connected backend. Review the service's deployment and privacy policy before using real outreach.")
                     .font(.footnote).foregroundStyle(RelayTheme.secondary)
-                Button("Delete Relay account", role: .destructive) { showDeleteAccount = true }
+                Button(store.isDemo ? "Clear practice data" : "Delete Relay account", role: .destructive) { showDeleteAccount = true }
                     .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(8)
                     .disabled(store.isBusy)
             }
