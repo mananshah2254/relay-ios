@@ -4,11 +4,10 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: RelayStore
     @State private var serviceURL = AppEnvironment.backendURL
-    @State private var inviteCode = ""
+    @State private var showConnections = false
     @State private var showAdvanced = false
     @State private var hunterKey = ""
     @State private var replaceHunterKey = false
-    @State private var changeService = false
     @State private var showDeleteAccount = false
 
     var body: some View {
@@ -16,27 +15,39 @@ struct SettingsView: View {
             List {
                 if store.isConnected || store.isDemo {
                     Section {
-                        HStack(spacing: 14) {
-                            RelayAvatar(name: store.settings.senderName.isEmpty ? "R" : store.settings.senderName)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(store.settings.senderName.isEmpty ? "Your workspace" : store.settings.senderName).font(.headline)
-                                Text(store.isDemo ? "Offline sample workspace" : store.gmailEmail ?? "Connect Gmail to get started")
-                                    .font(.footnote).foregroundStyle(RelayTheme.secondary).lineLimit(2)
+                        RelayCard {
+                            VStack(alignment: .leading, spacing: 17) {
+                                HStack(spacing: 14) {
+                                    RelayAvatar(name: store.settings.senderName.isEmpty ? "R" : store.settings.senderName)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(store.settings.senderName.isEmpty ? "Your workspace" : store.settings.senderName)
+                                            .font(.title3.weight(.bold)).foregroundStyle(RelayTheme.ink)
+                                        Text(store.isDemo ? "Practice workspace" : store.gmailEmail ?? "Connect Gmail to get started")
+                                            .font(.footnote).foregroundStyle(RelayTheme.secondary).lineLimit(2)
+                                    }
+                                }
+                                Rectangle().fill(RelayTheme.line).frame(height: 1)
+                                HStack(spacing: 7) {
+                                    Image(systemName: store.isDemo ? "sparkles" : "checkmark.shield.fill")
+                                    Text(store.isDemo ? "No real emails in practice" : "Your private Relay space")
+                                }
+                                .font(.caption.weight(.semibold)).foregroundStyle(RelayTheme.accent)
                             }
-                        }.padding(.vertical, 8)
+                        }
+                        .listRowInsets(EdgeInsets()).listRowBackground(Color.clear).listRowSeparator(.hidden)
                     }
                     Section("Workspace") {
                         Button { store.selectedTab = .templates } label: {
-                            settingsLabel("Sender name", detail: "Edit your name in Templates, then tap Save", symbol: "person.crop.circle", color: .blue)
+                            settingsLabel("Sender name", detail: "Edit your name in Templates, then tap Save", symbol: "person.crop.circle", color: RelayTheme.accent)
                         }.foregroundStyle(RelayTheme.ink)
                         NavigationLink { settingsPage("Connections") { serviceCard; connectionsCard } } label: {
-                            settingsLabel("Connected accounts", detail: "Gmail, Hunter & Relay", symbol: "link", color: .blue)
+                            settingsLabel("Connected accounts", detail: "Gmail, Hunter & Relay", symbol: "link", color: RelayTheme.accent)
                         }
                         NavigationLink { settingsPage("Sending preferences") { outreachLimitsCard } } label: {
-                            settingsLabel("Sending preferences", detail: "Limits, timing & approvals", symbol: "slider.horizontal.3", color: .indigo)
+                            settingsLabel("Sending preferences", detail: "Limits, timing & approvals", symbol: "slider.horizontal.3", color: RelayTheme.button)
                         }
                         Button { store.selectedTab = .templates } label: {
-                            settingsLabel("Templates & résumé", detail: "Your introduction and attachments", symbol: "doc.text", color: .teal)
+                            settingsLabel("Templates & résumé", detail: "Your introduction and attachments", symbol: "doc.text", color: RelayTheme.green)
                         }.foregroundStyle(RelayTheme.ink)
                     }
                     Section {
@@ -60,7 +71,7 @@ struct SettingsView: View {
                 }
                 Section("Help & information") {
                     Link(destination: URL(string: "https://relay.trailmails.com/support/")!) {
-                        settingsLabel("Support", detail: "Setup and troubleshooting", symbol: "questionmark.circle", color: .blue)
+                            settingsLabel("Support", detail: "Setup and troubleshooting", symbol: "questionmark.circle", color: RelayTheme.accent)
                     }
                     Link(destination: URL(string: "https://relay.trailmails.com/privacy/")!) {
                         settingsLabel("Privacy policy", detail: "How your information is handled", symbol: "hand.raised", color: .gray)
@@ -71,6 +82,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .relayKeyboardDismissal()
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(isPresented: $showConnections) {
+                settingsPage("Connections") { serviceCard; connectionsCard }
+            }
             .refreshable { await store.refresh() }
             .onAppear { serviceURL = AppEnvironment.backendURL }
             .confirmationDialog(store.isDemo ? "Clear the practice workspace?" : "Delete your Relay account and stored outreach?", isPresented: $showDeleteAccount, titleVisibility: .visible) {
@@ -84,8 +98,8 @@ struct SettingsView: View {
 
     private func settingsLabel(_ title: String, detail: String, symbol: String, color: Color) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                .frame(width: 32, height: 32).background(color.gradient, in: RoundedRectangle(cornerRadius: 8))
+            Image(systemName: symbol).font(.system(size: 16, weight: .semibold)).foregroundStyle(color)
+                .frame(width: 38, height: 38).background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.body)
                 Text(detail).font(.caption).foregroundStyle(RelayTheme.secondary)
@@ -102,31 +116,26 @@ struct SettingsView: View {
     private var serviceCard: some View {
         RelayCard {
             VStack(alignment: .leading, spacing: 15) {
-                RelaySectionHeading(title: store.isConnected ? "Your Relay account" : "1. Join Relay", detail: store.isConnected ? "Your private workspace is connected." : "Paste the invite code shared privately by your Relay administrator. No server setup needed.")
+                RelaySectionHeading(title: store.isConnected ? "Your Relay account" : "Welcome to Relay", detail: store.isConnected ? "Your private workspace is connected." : "Create your workspace, then connect your accounts. No invitation needed.")
                 if store.isDemo {
                     Label("Demo mode · no service connected", systemImage: "sparkles")
                         .font(.footnote).foregroundStyle(RelayTheme.accent)
-                } else if store.isConnected && !changeService {
+                } else if store.isConnected {
                     Label("Connected securely", systemImage: "checkmark.shield.fill")
                         .font(.footnote).foregroundStyle(RelayTheme.green)
                         .textSelection(.enabled)
-                    Text("Your Gmail, résumé, and templates stay separate from other members of this group.")
+                    Text("Your Gmail, résumé, and templates stay private to your workspace.")
                         .font(.footnote).foregroundStyle(RelayTheme.secondary)
                 } else {
-                    SecureField("Paste your invite code", text: $inviteCode)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .privacySensitive()
-                        .relayField()
-                        .accessibilityIdentifier("relay.inviteCode")
-                    Button(store.isBusy ? "Joining…" : "Join Relay") {
+                    Button(store.isBusy ? "Getting started…" : "Get started") {
                         Task {
-                            if await store.joinRelay(inviteCode: inviteCode) { inviteCode = ""; changeService = false }
+                            if await store.joinRelay() { showConnections = true }
                         }
                     }
                     .buttonStyle(RelayPrimaryButtonStyle())
-                    .disabled(store.isBusy || inviteCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    Text("Need an invitation? Ask the person who invited you. Never share your Gmail password or Hunter key with them.")
+                    .accessibilityIdentifier("relay.getStarted")
+                    .disabled(store.isBusy)
+                    Text("You’ll need your own Gmail account and Hunter API key for live outreach. Provider usage limits and charges may apply.")
                         .font(.footnote).foregroundStyle(RelayTheme.secondary)
                     DisclosureGroup("Advanced · custom service", isExpanded: $showAdvanced) {
                     TextField("https://relay.example.com", text: $serviceURL)
@@ -138,7 +147,7 @@ struct SettingsView: View {
                         .font(.footnote).foregroundStyle(RelayTheme.secondary)
                     Button("Connect service") {
                         Task {
-                            if await store.connectService(url: serviceURL) { changeService = false }
+                            if await store.connectService(url: serviceURL) { showConnections = true }
                         }
                     }
                     .buttonStyle(RelayPrimaryButtonStyle())

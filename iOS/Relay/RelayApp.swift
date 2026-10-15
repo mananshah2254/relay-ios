@@ -35,7 +35,7 @@ private struct RelayRootView: View {
     @EnvironmentObject private var store: RelayStore
     var body: some View {
         VStack(spacing: 0) {
-            if store.isDemo {
+            if store.isDemo && !store.isScreenshotCapture {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkle.magnifyingglass")
                     Text("Practice · No real emails").font(.caption.weight(.semibold))

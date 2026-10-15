@@ -366,7 +366,7 @@
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/RelayShare.entitlements;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 86FSBA64MY;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2;
 				RELAY_APP_GROUP = group.com.mananshah.relay.production;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
@@ -465,7 +465,7 @@
 				CODE_SIGN_ENTITLEMENTS = Relay/Relay.entitlements;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 86FSBA64MY;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2;
 				RELAY_APP_GROUP = group.com.mananshah.relay.production;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Relay/Info.plist;

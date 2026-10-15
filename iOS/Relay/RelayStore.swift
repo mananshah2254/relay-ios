@@ -10,10 +10,17 @@ enum RelayTab: Hashable {
 
 @MainActor
 final class RelayStore: ObservableObject {
+    #if DEBUG
+    init() {
+        // Open the real setup screen for fresh-install visual checks; no fixture or session is injected.
+        if ProcessInfo.processInfo.arguments.contains("--relay-start-settings") { selectedTab = .settings }
+    }
+    #endif
     @Published var selectedTab: RelayTab = .jobs
     @Published private(set) var snapshot: AppSnapshot?
     @Published var settings: OutreachSettings = .default
     @Published private(set) var isDemo = false
+    @Published private(set) var isScreenshotCapture = false
     @Published private(set) var isBusy = false
     @Published private(set) var activityTitle = "Updating Relay"
     @Published private(set) var activityDetail = "Saving your changes securely."
@@ -27,7 +34,7 @@ final class RelayStore: ObservableObject {
     private var demoWorkspace: DemoWorkspace?
     var simulatedCount: Int { allMessages.filter { $0.status == "simulated" }.count }
 
-    var isConnected: Bool { !isDemo && SharedCredentials.token != nil && !connectedServiceURL.isEmpty }
+    var isConnected: Bool { isScreenshotCapture || (!isDemo && SharedCredentials.token != nil && !connectedServiceURL.isEmpty) }
     var campaigns: [Campaign] { snapshot?.campaigns ?? [] }
     var resume: ResumeDocument? { snapshot?.resume }
     var gmailEmail: String? { snapshot?.connections.gmailEmail }
@@ -46,13 +53,85 @@ final class RelayStore: ObservableObject {
 
     func campaign(id: String) -> Campaign? { campaigns.first { $0.id == id } }
 
+    #if DEBUG
+    private static func screenshotSnapshot() -> AppSnapshot {
+        // Reserved example domains and fictional people only. This is visual
+        // capture data, never an account or a provider result.
+        var settings = OutreachSettings.default
+        settings.senderName = "Taylor Rivera"
+        settings.selectTemplate("software")
+        settings.attachResume = true
+
+        let alex = Contact(id: "screen-alex", email: "alex@example.com", firstName: "Alex", lastName: "Morgan",
+                           position: "Engineering Manager", department: "Engineering", verification: "verified",
+                           reason: "Engineering leadership · relevant to this role.")
+        let jordan = Contact(id: "screen-jordan", email: "jordan@example.org", firstName: "Jordan", lastName: "Lee",
+                             position: "Talent Partner", department: "People", verification: "verified",
+                             reason: "Talent team · relevant to hiring.")
+        let robin = Contact(id: "screen-robin", email: "robin@example.net", firstName: "Robin", lastName: "Chen",
+                            position: "Team Lead", department: "Engineering", verification: "verified",
+                            reason: "Engineering team · relevant to this role.")
+        let messageBody = "Hi Alex,\n\nI’m interested in the Software Engineer role at Example Studio. I’d welcome the chance to share how my experience might fit the team. Would you be open to a referral conversation?\n\nThank you,\nTaylor Rivera"
+        let ready = Campaign(
+            id: "screen-ready", url: "https://example.com/careers/software-engineer", title: "Software Engineer",
+            company: "Example Studio", domain: "example.com",
+            description: "Build thoughtful, reliable products with a collaborative engineering team.",
+            status: "ready", createdAt: "2026-10-12T12:00:00Z", contacts: [alex, jordan],
+            messages: [
+                OutboundMessage(id: "screen-draft-1", contactId: alex.id, to: alex.email,
+                                subject: "Referral request — Software Engineer at Example Studio", body: messageBody),
+                OutboundMessage(id: "screen-draft-2", contactId: jordan.id, to: jordan.email,
+                                subject: "Referral request — Software Engineer at Example Studio", body: messageBody)
+            ], domainConfirmed: true
+        )
+        let queued = Campaign(
+            id: "screen-queued", url: "https://example.org/careers/support-engineer", title: "Support Engineer",
+            company: "Example Labs", domain: "example.org", status: "queued", createdAt: "2026-10-10T12:00:00Z",
+            contacts: [robin],
+            messages: [OutboundMessage(id: "screen-queued-1", contactId: robin.id, to: robin.email,
+                                       subject: "Referral request — Support Engineer at Example Labs", body: messageBody,
+                                       status: "queued")], domainConfirmed: true
+        )
+        let finished = Campaign(
+            id: "screen-finished", url: "https://example.net/careers/ai-engineer", title: "AI Engineer",
+            company: "Example Systems", domain: "example.net", status: "completed", createdAt: "2026-10-08T12:00:00Z",
+            contacts: [alex],
+            messages: [OutboundMessage(id: "screen-submitted-1", contactId: alex.id, to: alex.email,
+                                       subject: "Referral request — AI Engineer at Example Systems", body: messageBody,
+                                       status: "submitted")], domainConfirmed: true
+        )
+        return AppSnapshot(settings: settings,
+                           connections: Connections(gmailEmail: "taylor@example.com", hunterConnected: true),
+                           resume: ResumeDocument(id: "screen-resume", filename: "Taylor_Rivera_Resume.pdf",
+                                                  byteCount: 184_320, uploadedAt: "2026-10-10T12:00:00Z"),
+                           campaigns: [ready, queued, finished], queuePaused: false)
+    }
+    #endif
+
     func activate() async {
         #if DEBUG
+        // Review artwork uses the real interface with fictional account data.
+        // This path is compiled out of the App Store build and cannot contact a provider.
+        if let capture = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--relay-screenshot=") }) {
+            if !isScreenshotCapture {
+                let state = Self.screenshotSnapshot()
+                isScreenshotCapture = true
+                isDemo = false
+                snapshot = state
+                settings = state.settings
+                if capture == "--relay-screenshot=outreach" { selectedTab = .outreach }
+                if capture == "--relay-screenshot=templates" { selectedTab = .templates }
+                if capture == "--relay-screenshot=settings" { selectedTab = .settings }
+            }
+            return
+        }
         // Offline visual QA. Never reads credentials or contacts a provider.
         if let preview = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--relay-preview=") }) {
             if !isDemo {
                 enterDemo()
                 if preview == "--relay-preview=templates" { selectedTab = .templates }
+                if preview == "--relay-preview=outreach" { selectedTab = .outreach }
+                if preview == "--relay-preview=settings" { selectedTab = .settings }
                 if preview == "--relay-preview=activity" {
                     activityTitle = "Finding relevant people"
                     activityDetail = "Design preview only. No lookup or email is being sent."
@@ -69,7 +148,7 @@ final class RelayStore: ObservableObject {
     }
 
     func pollIfNeeded() async {
-        guard isConnected, !isBusy, !activeCampaigns.isEmpty else { return }
+        guard !isScreenshotCapture, isConnected, !isBusy, !activeCampaigns.isEmpty else { return }
         await refresh(silently: true)
     }
 
@@ -90,24 +169,14 @@ final class RelayStore: ObservableObject {
         await activate()
     }
 
-    func joinRelay(inviteCode: String) async -> Bool {
-        do {
-            let url = try RelayInvitation.connectionURL(serviceURL: AppEnvironment.defaultBackendURL, code: inviteCode)
-            let connected = await connectService(url: url)
-            if !connected, errorMessage?.contains("private Relay setup link") == true {
-                errorMessage = "That invite code was not accepted. Check that you copied the complete code, or ask your Relay administrator for a new one."
-            }
-            return connected
-        } catch {
-            errorMessage = error.localizedDescription
-            return false
-        }
+    func joinRelay() async -> Bool {
+        await connectService(url: AppEnvironment.defaultBackendURL)
     }
 
     func connectService(url rawURL: String) async -> Bool {
         let previousURL = AppEnvironment.backendURL
         let previousToken = SharedCredentials.token
-        let succeeded = await perform {
+        let succeeded = await perform(title: "Opening your workspace", detail: "Setting up your private connection to Relay.") {
             let normalized = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
             guard var components = URLComponents(string: normalized), !normalized.isEmpty else {
                 throw RelayError.message("Enter the address of your Relay service.")
@@ -153,7 +222,7 @@ final class RelayStore: ObservableObject {
 
     func refresh(silently: Bool = false) async {
         if isDemo { return }
-        guard isConnected, !isRefreshing else { return }
+        guard !isScreenshotCapture, isConnected, !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         do {
@@ -400,6 +469,7 @@ final class RelayStore: ObservableObject {
     }
 
     private func client() throws -> APIClient {
+        guard !isScreenshotCapture else { throw RelayError.message("Screenshot fixture is offline and read-only.") }
         guard !isDemo else { throw RelayError.message("You’re exploring sample data. Exit the demo and connect your accounts to use live outreach.") }
         guard let url = URL(string: connectedServiceURL), let token = SharedCredentials.token else {
             throw RelayError.message("Connect your Relay service in Settings first.")
@@ -433,6 +503,7 @@ final class RelayStore: ObservableObject {
     }
 
     private func perform(title: String = "Updating Relay", detail: String = "Waiting for confirmation from your service.", _ operation: () async throws -> Void) async -> Bool {
+        guard !isScreenshotCapture else { errorMessage = "Screenshot fixture is offline and read-only."; return false }
         guard !isBusy else { return false }
         activityTitle = title
         activityDetail = detail

@@ -79,7 +79,7 @@ export class ReferralService {
 
   createSession() {
     if (this.halted) throw new AppError('storage_unavailable', 'Server storage is unavailable.', 503);
-    if (Object.keys(this.store.data.users).length >= 1000) throw new AppError('capacity_limit', 'This pilot server has reached its account capacity.', 503);
+    if (Object.keys(this.store.data.users).length >= 1000) throw new AppError('capacity_limit', 'Relay has reached its current workspace capacity. Please contact support.', 503);
     const userID = id();
     const token = randomBytes(32).toString('base64url');
     this.store.data.users[userID] = { id: userID, createdAt: iso(this.now()), settings: clone(DEFAULT_SETTINGS), hunterKey: null, google: null, resume: null, campaigns: [], queuePaused: false };

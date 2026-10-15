@@ -96,10 +96,18 @@ struct JobsView: View {
                         WelcomeView().listRowBackground(Color.clear).listRowSeparator(.hidden)
                     } else {
                         Section {
+                            JobsHeroCard(opportunityCount: store.campaigns.count, queuedCount: store.queuedCount) {
+                                showAddJob = true
+                            }
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        }
+                        Section {
                             HStack(spacing: 10) {
-                                overview(.ready, symbol: "tray", color: RelayTheme.accent)
+                                overview(.ready, symbol: "checkmark.seal", color: RelayTheme.accent)
                                 overview(.active, symbol: "paperplane", color: RelayTheme.green)
-                                overview(.attention, symbol: "exclamationmark.circle", color: RelayTheme.amber)
+                                overview(.attention, symbol: "sparkle.magnifyingglass", color: RelayTheme.amber)
                             }.listRowInsets(EdgeInsets()).listRowBackground(Color.clear).listRowSeparator(.hidden)
                         }
                         if !store.isDemo && (store.gmailEmail == nil || !store.hunterConnected) {
@@ -127,19 +135,23 @@ struct JobsView: View {
                                 Button("Clear filters") { searchText = ""; filter = .all }
                             } else {
                                 ForEach(visibleCampaigns, id: \.id) { campaign in
-                                    NavigationLink(value: campaign.id) { CampaignListRow(campaign: campaign) }
+                                    Button { path.append(campaign.id) } label: { CampaignCard(campaign: campaign) }
+                                        .buttonStyle(.plain)
+                                        .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
+                                        .listRowBackground(Color.clear)
+                                        .listRowSeparator(.hidden)
                                         .contextMenu {
                                             if let url = URL(string: campaign.url), ["http", "https"].contains(url.scheme ?? "") { ShareLink(item: url) { Label("Share job link", systemImage: "square.and.arrow.up") } }
                                         }
                                 }
                             }
-                        } header: { Text("\(visibleCampaigns.count) \(visibleCampaigns.count == 1 ? "opportunity" : "opportunities")") }
+                        } header: { Text("YOUR OPPORTUNITIES · \(visibleCampaigns.count)") }
                     }
                     if !store.pendingShares.isEmpty { Section { PendingSharesCard().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) } }
             }
             .listStyle(.insetGrouped).scrollContentBackground(.hidden)
             .background(RelayTheme.background)
-            .navigationTitle("Jobs")
+            .navigationTitle("Opportunities")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Company or job title")
             .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: filter)
@@ -159,11 +171,23 @@ struct JobsView: View {
                 }
             }
             .navigationDestination(for: String.self) { CampaignDetailView(id: $0) }
+            .onAppear { openScreenshotDetailIfNeeded() }
+            .onChange(of: store.isScreenshotCapture) { _, _ in openScreenshotDetailIfNeeded() }
             .refreshable { await store.refresh() }
             .sheet(isPresented: $showAddJob) {
                 AddJobSheet { id in path.append(id) }
             }
         }
+    }
+
+    private func openScreenshotDetailIfNeeded() {
+        #if DEBUG
+        if store.isScreenshotCapture,
+           ProcessInfo.processInfo.arguments.contains("--relay-screenshot=detail"),
+           path.isEmpty {
+            path.append("screen-ready")
+        }
+        #endif
     }
 
     private func overview(_ value: CampaignFilter, symbol: String, color: Color) -> some View {
@@ -176,8 +200,9 @@ struct JobsView: View {
                 }
                 Text(value.title).font(.caption.weight(.medium)).foregroundStyle(RelayTheme.secondary)
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                .background(RelayTheme.surface, in: RoundedRectangle(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(filter == value ? color : .clear, lineWidth: 1.5))
+                .background(RelayTheme.surface, in: RoundedRectangle(cornerRadius: 19))
+                .overlay(RoundedRectangle(cornerRadius: 19).stroke(filter == value ? color.opacity(0.65) : RelayTheme.line, lineWidth: 1))
+                .shadow(color: RelayTheme.ink.opacity(0.025), radius: 9, y: 4)
         }.buttonStyle(.plain).foregroundStyle(RelayTheme.ink)
             .accessibilityLabel("\(store.campaigns.filter(value.includes).count) jobs, \(value.title)")
             .accessibilityAddTraits(filter == value ? .isSelected : [])
@@ -194,6 +219,59 @@ struct JobsView: View {
                 }
             }
         }
+    }
+}
+
+private struct JobsHeroCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let opportunityCount: Int
+    let queuedCount: Int
+    let addJob: () -> Void
+    @State private var floating = false
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(LinearGradient(colors: [Color(red: 0.18, green: 0.18, blue: 0.39), Color(red: 0.31, green: 0.27, blue: 0.61)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Circle().fill(.white.opacity(0.07)).frame(width: 230, height: 230).offset(x: 74, y: -110)
+            Circle().stroke(.white.opacity(0.14), lineWidth: 1).frame(width: 140, height: 140).offset(x: 7, y: -30)
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 33, weight: .ultraLight))
+                .foregroundStyle(.white.opacity(0.85))
+                .rotationEffect(.degrees(-22))
+                .offset(x: -51, y: floating && !reduceMotion ? 41 : 47)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 19) {
+                Label("YOUR NEXT MOVE", systemImage: "sparkle")
+                    .font(.caption2.weight(.bold)).tracking(1.5).foregroundStyle(.white.opacity(0.75))
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Make a connection\nthat counts.")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .tracking(-0.6).foregroundStyle(.white)
+                    Text(opportunityCount == 0 ? "Save a role to start a thoughtful introduction." : "\(opportunityCount) saved \(opportunityCount == 1 ? "role" : "roles") · \(queuedCount) \(queuedCount == 1 ? "email" : "emails") queued")
+                        .font(.subheadline).foregroundStyle(.white.opacity(0.78))
+                }
+                Button(action: addJob) {
+                    HStack(spacing: 9) {
+                        Image(systemName: "plus").fontWeight(.bold)
+                        Text("Add an opportunity").fontWeight(.semibold)
+                        Spacer(minLength: 0)
+                        Image(systemName: "arrow.up.right").font(.caption.weight(.bold))
+                    }
+                    .padding(.horizontal, 17).padding(.vertical, 14)
+                    .foregroundStyle(RelayTheme.button)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("relay.addOpportunity")
+            }
+            .padding(23)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .shadow(color: RelayTheme.button.opacity(0.16), radius: 20, y: 12)
+        .onAppear { floating = true }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: floating)
     }
 }
 
@@ -214,29 +292,49 @@ private struct CampaignListRow: View {
 
 private struct WelcomeView: View {
     @EnvironmentObject private var store: RelayStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var floated = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: 24) {
             ZStack {
-                RoundedRectangle(cornerRadius: 34).fill(RelayTheme.accent.opacity(0.055)).frame(height: 176)
-                Image(systemName: "envelope.open").font(.system(size: 66, weight: .ultraLight)).foregroundStyle(RelayTheme.accent)
-                    .rotationEffect(.degrees(-8))
-                Image(systemName: "arrow.up.right").font(.system(size: 22, weight: .medium)).foregroundStyle(RelayTheme.accent)
-                    .offset(x: 62, y: -42)
+                RoundedRectangle(cornerRadius: 30)
+                    .fill(LinearGradient(colors: [Color(red: 0.17, green: 0.18, blue: 0.39), Color(red: 0.36, green: 0.30, blue: 0.67)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                Circle().stroke(.white.opacity(0.17), lineWidth: 1).frame(width: 130, height: 130).offset(x: 65, y: -23)
+                Circle().fill(.white.opacity(0.08)).frame(width: 210, height: 210).offset(x: -112, y: 75)
+                Image(systemName: "envelope.open.fill")
+                    .font(.system(size: 65, weight: .ultraLight))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(-11))
+                    .offset(x: 0, y: floated && !reduceMotion ? -5 : 4)
+                Image(systemName: "paperplane.fill").font(.system(size: 24, weight: .light)).foregroundStyle(.white.opacity(0.78))
+                    .rotationEffect(.degrees(-20)).offset(x: 70, y: -49)
             }.accessibilityHidden(true)
+                .frame(height: 184)
+                .clipShape(RoundedRectangle(cornerRadius: 30))
+                .shadow(color: RelayTheme.button.opacity(0.16), radius: 18, y: 11)
+                .onAppear { floated = true }
+                .animation(reduceMotion ? nil : .easeInOut(duration: 2.1).repeatForever(autoreverses: true), value: floated)
             VStack(alignment: .leading, spacing: 12) {
-                Text("Your next role.\nA real connection.")
-                    .font(.largeTitle.bold()).foregroundStyle(RelayTheme.ink)
-                Text("Share a job. Find people at the company. Reach out from your own Gmail, in your own words.")
+                Text("A better way to\nreach out.")
+                    .font(.system(size: 34, weight: .bold, design: .rounded)).tracking(-0.6).foregroundStyle(RelayTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Turn a job you care about into a personal introduction. Keep the opportunity, people, and message together.")
                     .font(.body).foregroundStyle(RelayTheme.secondary)
             }
-            VStack(spacing: 19) {
-                welcomeStep("1", title: "Bring the opportunity", detail: "A LinkedIn job or a company careers link.")
-                welcomeStep("2", title: "Find relevant people", detail: "Choose a bounded set of verified contacts with Hunter.")
-                welcomeStep("3", title: "Make the introduction", detail: "Your template, your Gmail, and an optional résumé.")
+            RelayCard {
+                VStack(spacing: 18) {
+                    welcomeStep("1", title: "Bring the opportunity", detail: "Share a job link or add the role yourself.")
+                    welcomeStep("2", title: "Find the right people", detail: "Review professional contacts for the company.")
+                    welcomeStep("3", title: "Make it personal", detail: "Send with your own words and Gmail account.")
+                }
             }
             VStack(spacing: 13) {
                 Button("Set up Relay") { store.selectedTab = .settings }.buttonStyle(RelayPrimaryButtonStyle())
-                Button("Explore the demo") { store.enterDemo() }.font(.subheadline.weight(.semibold)).padding(10)
+                // An automatic button inside a List row can activate the row's
+                // other button. Keep demo entry independent of live setup.
+                Button("Explore the demo") { store.enterDemo() }
+                    .buttonStyle(.borderless)
+                    .font(.subheadline.weight(.semibold)).padding(10)
             }
         }
     }
@@ -247,6 +345,7 @@ private struct WelcomeView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(RelayTheme.ink)
                 Text(detail).font(.footnote).foregroundStyle(RelayTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
@@ -257,22 +356,28 @@ struct CampaignCard: View {
     let campaign: Campaign
     var body: some View {
         RelayCard {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(spacing: 12) {
                     RelayAvatar(name: campaign.company.isEmpty ? "?" : campaign.company)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(campaign.company.isEmpty ? "Confirm company" : campaign.company).font(.subheadline.weight(.semibold)).foregroundStyle(RelayTheme.secondary)
-                        Text(campaign.title.isEmpty ? "Job details needed" : campaign.title).font(.headline).foregroundStyle(RelayTheme.ink).fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(campaign.company.isEmpty ? "Confirm company" : campaign.company)
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(RelayTheme.ink)
+                        if !campaign.domain.isEmpty {
+                            Text(campaign.domain).font(.caption).foregroundStyle(RelayTheme.secondary)
+                        }
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(RelayTheme.secondary).padding(.top, 5)
+                    Image(systemName: "arrow.up.right").font(.caption.weight(.semibold)).foregroundStyle(RelayTheme.secondary)
                 }
+                Text(campaign.title.isEmpty ? "Job details needed" : campaign.title)
+                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .foregroundStyle(RelayTheme.ink).fixedSize(horizontal: false, vertical: true)
+                Rectangle().fill(RelayTheme.line).frame(height: 1)
                 HStack {
                     RelayStatusPill(status: campaign.status)
                     Spacer(minLength: 6)
-                    if !campaign.contacts.isEmpty {
-                        Label("\(campaign.contacts.count)", systemImage: "person.2").font(.caption).foregroundStyle(RelayTheme.secondary)
-                    }
+                    Label("\(campaign.contacts.count) \(campaign.contacts.count == 1 ? "contact" : "contacts")", systemImage: "person.2")
+                        .font(.caption.weight(.medium)).foregroundStyle(RelayTheme.secondary)
                 }
             }
         }
@@ -512,17 +617,22 @@ struct CampaignDetailView: View {
     }
 
     private func header(_ campaign: Campaign) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                RelayAvatar(name: campaign.company.isEmpty ? "?" : campaign.company)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(campaign.company.isEmpty ? "Company to confirm" : campaign.company).font(.headline)
-                    if !campaign.domain.isEmpty { Text(campaign.domain).font(.footnote).foregroundStyle(RelayTheme.secondary) }
+        RelayCard {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 12) {
+                    RelayAvatar(name: campaign.company.isEmpty ? "?" : campaign.company)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(campaign.company.isEmpty ? "Company to confirm" : campaign.company)
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(RelayTheme.ink)
+                        if !campaign.domain.isEmpty { Text(campaign.domain).font(.footnote).foregroundStyle(RelayTheme.secondary) }
+                    }
                 }
+                Text(campaign.title.isEmpty ? "Let’s fill in this role" : campaign.title)
+                    .font(.system(size: 29, weight: .bold, design: .rounded)).tracking(-0.5)
+                    .foregroundStyle(RelayTheme.ink)
+                RelayStatusPill(status: campaign.status)
             }
-            Text(campaign.title.isEmpty ? "Let’s fill in this role" : campaign.title).font(.title2.bold()).foregroundStyle(RelayTheme.ink)
-            RelayStatusPill(status: campaign.status)
-        }.frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private func contactSection(_ campaign: Campaign) -> some View {

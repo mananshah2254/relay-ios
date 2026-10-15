@@ -20,30 +20,45 @@ struct OutreachView: View {
         NavigationStack {
             List {
                 Section {
-                    HStack(spacing: 16) {
-                        metric(store.allMessages.filter { $0.status == "draft" }.count, "Drafts", "doc.text", RelayTheme.accent)
-                        Divider()
-                        metric(store.queuedCount, "Queued", "clock", RelayTheme.amber)
-                        Divider()
-                        metric(store.isDemo ? store.simulatedCount : store.submittedCount, store.isDemo ? "Simulated" : "Submitted", "checkmark.circle", RelayTheme.green)
-                    }.padding(.vertical, 8)
+                    RelayCard {
+                        VStack(alignment: .leading, spacing: 18) {
+                            Label("OUTREACH AT A GLANCE", systemImage: "chart.bar.xaxis")
+                                .font(.caption2.weight(.bold)).tracking(1.1).foregroundStyle(RelayTheme.accent)
+                            HStack(spacing: 12) {
+                                metric(store.allMessages.filter { $0.status == "draft" }.count, "Drafts", "doc.text", RelayTheme.accent)
+                                Rectangle().fill(RelayTheme.line).frame(width: 1)
+                                metric(store.queuedCount, "Queued", "clock", RelayTheme.amber)
+                                Rectangle().fill(RelayTheme.line).frame(width: 1)
+                                metric(store.isDemo ? store.simulatedCount : store.submittedCount, store.isDemo ? "Simulated" : "Submitted", "checkmark.circle", RelayTheme.green)
+                            }.frame(height: 78)
+                        }
+                    }
+                    .listRowInsets(EdgeInsets()).listRowBackground(Color.clear).listRowSeparator(.hidden)
                 }
                 if store.isConnected || store.isDemo {
                     Section {
-                        HStack(spacing: 12) {
-                            Image(systemName: store.queuePaused ? "pause.circle.fill" : "clock.arrow.circlepath")
-                                .foregroundStyle(RelayTheme.accent).font(.title2)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(store.queuePaused ? "Sending paused" : "Sending schedule").font(.subheadline.weight(.semibold))
-                                Text((store.snapshot?.settings ?? .default).pacingSummary)
-                                    .font(.caption).foregroundStyle(RelayTheme.secondary)
-                                Text("\(store.snapshot?.settings.dailyLimit ?? 10) per 24h · Longer saved job delays may apply")
-                                    .font(.caption).foregroundStyle(RelayTheme.secondary)
+                        RelayCard {
+                            VStack(alignment: .leading, spacing: 15) {
+                                HStack(alignment: .top, spacing: 13) {
+                                    Image(systemName: store.queuePaused ? "pause.fill" : "clock.arrow.circlepath")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(RelayTheme.accent)
+                                        .frame(width: 44, height: 44)
+                                        .background(RelayTheme.wash, in: RoundedRectangle(cornerRadius: 14))
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(store.queuePaused ? "Sending is paused" : "A calmer sending rhythm")
+                                            .font(.headline).foregroundStyle(RelayTheme.ink)
+                                        Text((store.snapshot?.settings ?? .default).pacingSummary)
+                                            .font(.subheadline).foregroundStyle(RelayTheme.secondary)
+                                        Text("\(store.snapshot?.settings.dailyLimit ?? 10) per 24 hours · longer job delays may apply")
+                                            .font(.caption).foregroundStyle(RelayTheme.secondary)
+                                    }
+                                }
+                                Button(store.queuePaused ? "Resume sending" : "Pause sending") { Task { await store.setQueuePaused(!store.queuePaused) } }
+                                    .buttonStyle(RelaySecondaryButtonStyle()).disabled(store.isBusy)
                             }
-                            Spacer(minLength: 4)
-                            Button(store.queuePaused ? "Resume" : "Pause") { Task { await store.setQueuePaused(!store.queuePaused) } }
-                                .buttonStyle(.bordered).disabled(store.isBusy)
                         }
+                        .listRowInsets(EdgeInsets()).listRowBackground(Color.clear).listRowSeparator(.hidden)
                     }
                     Section {
                         Picker("Email status", selection: $filter) {
@@ -61,12 +76,25 @@ struct OutreachView: View {
                         Section {
                             ForEach(messages(campaign)) { message in
                                 Button { preview = MessageSelection(message: message) } label: {
-                                    VStack(alignment: .leading, spacing: 7) {
-                                        Text(message.to).font(.subheadline.weight(.semibold)).foregroundStyle(RelayTheme.ink).lineLimit(1)
-                                        Text(message.subject).font(.subheadline).foregroundStyle(RelayTheme.secondary).lineLimit(2)
-                                        RelayStatusPill(status: message.status)
-                                    }.padding(.vertical, 6)
+                                    RelayCard {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: "envelope")
+                                                .font(.system(size: 17, weight: .medium))
+                                                .foregroundStyle(RelayTheme.accent)
+                                                .frame(width: 38, height: 38)
+                                                .background(RelayTheme.wash, in: RoundedRectangle(cornerRadius: 12))
+                                            VStack(alignment: .leading, spacing: 7) {
+                                                Text(message.to).font(.subheadline.weight(.semibold)).foregroundStyle(RelayTheme.ink).lineLimit(1)
+                                                Text(message.subject).font(.subheadline).foregroundStyle(RelayTheme.secondary).lineLimit(2)
+                                                RelayStatusPill(status: message.status)
+                                            }
+                                            Spacer(minLength: 0)
+                                            Image(systemName: "arrow.up.right").font(.caption.weight(.semibold)).foregroundStyle(RelayTheme.secondary)
+                                        }
+                                    }
                                 }.buttonStyle(.plain)
+                                    .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
+                                    .listRowBackground(Color.clear).listRowSeparator(.hidden)
                             }
                         } header: {
                             NavigationLink { CampaignDetailView(id: campaign.id) } label: {
@@ -98,8 +126,8 @@ struct OutreachView: View {
     private func metric(_ count: Int, _ title: String, _ symbol: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Image(systemName: symbol).foregroundStyle(color)
-            Text("\(count)").font(.title2.bold()).monospacedDigit().contentTransition(.numericText())
-            Text(title).font(.caption).foregroundStyle(RelayTheme.secondary)
+            Text("\(count)").font(.system(size: 27, weight: .bold, design: .rounded)).monospacedDigit().contentTransition(.numericText())
+            Text(title).font(.caption.weight(.medium)).foregroundStyle(RelayTheme.secondary)
         }.frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
     }

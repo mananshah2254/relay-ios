@@ -70,20 +70,22 @@ test('real alarms submit once and keep remaining mail queued across restart', { 
   } finally { await mf.dispose(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Workers runtime persists encrypted PDF chunks, isolates sessions and refuses uninvited enrollment', { timeout: 60000 }, async () => {
+test('public signup persists encrypted PDF chunks and isolates accounts without an invitation', { timeout: 60000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'relay-worker-test-'));
-  const bindings = { PUBLIC_BASE_URL: 'https://relay.example.com', STORE_KEY_HEX: randomBytes(32).toString('hex'), ENROLLMENT_KEY: randomBytes(32).toString('base64url'), TEST_RECIPIENT_ALLOWLIST: 'test@example.com' };
+  const bindings = { PUBLIC_BASE_URL: 'https://relay.example.com', STORE_KEY_HEX: randomBytes(32).toString('hex'), TEST_RECIPIENT_ALLOWLIST: 'test@example.com' };
   const options = { modules: true, scriptPath: 'cloudflare-dist/worker.js', compatibilityDate: '2026-09-16', compatibilityFlags: ['nodejs_compat'], durableObjects: { RELAY: { className: 'RelayPilot', useSQLite: true } }, durableObjectsPersist: directory, bindings };
   const runtimeOptions = () => ({ ...convertV4MiniflareOptions(options), resourcePersistencePath: directory });
   let mf = new Miniflare(runtimeOptions());
-  const call = (path, method = 'GET', data, token, invited = true) => mf.dispatchFetch(`https://relay.example.com${path}`, {
-    method, headers: { 'Content-Type': 'application/json', ...(invited ? { 'X-Relay-Enrollment': bindings.ENROLLMENT_KEY } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  const call = (path, method = 'GET', data, token) => mf.dispatchFetch(`https://relay.example.com${path}`, {
+    method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(data === undefined ? {} : { body: JSON.stringify(data) }),
   });
   try {
     assert.equal((await call('/health')).status, 200);
-    assert.equal((await call('/v1/session', 'POST', {}, null, false)).status, 403);
-    const session = await (await call('/v1/session', 'POST', {})).json();
+    assert.equal((await call('/v1/state')).status, 401);
+    const signup = await call('/v1/session', 'POST', {});
+    assert.equal(signup.status, 201);
+    const session = await signup.json();
     assert.ok(session.token);
     assert.equal((await call('/v1/state', 'GET', undefined, 'wrong')).status, 401);
     const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(3 * 1024 * 1024, 65)]);
@@ -103,5 +105,36 @@ test('Workers runtime persists encrypted PDF chunks, isolates sessions and refus
     assert.equal(recovered.resume.dataBase64, undefined);
     assert.equal((await call('/v1/account', 'DELETE', undefined, session.token)).status, 200);
     assert.equal((await call('/v1/state', 'GET', undefined, session.token)).status, 401);
+  } finally { await mf.dispose(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('public signup limits survive restart, ignore spoofed forwarding headers and leave existing accounts usable', { timeout: 60000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'relay-public-signup-test-'));
+  const bindings = { PUBLIC_BASE_URL: 'https://relay.example.com', STORE_KEY_HEX: randomBytes(32).toString('hex'), TEST_RECIPIENT_ALLOWLIST: 'test@example.com', ENROLLMENT_KEY: 'unused-legacy-key' };
+  const options = () => ({ ...convertV4MiniflareOptions({ modules: true, scriptPath: 'cloudflare-dist/worker.js', compatibilityDate: '2026-09-16', compatibilityFlags: ['nodejs_compat'], durableObjects: { RELAY: { className: 'RelayPilot', useSQLite: true } }, bindings }), resourcePersistencePath: directory });
+  let mf = new Miniflare(options());
+  const signup = (network, extraHeaders = {}, data = {}) => mf.dispatchFetch('https://relay.example.com/v1/session', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': network, ...extraHeaders }, body: JSON.stringify(data),
+  });
+  try {
+    let first;
+    for (let i = 0; i < 10; i++) {
+      const response = await signup('192.0.2.1');
+      assert.equal(response.status, 201);
+      const session = await response.json();
+      first ||= session;
+      assert.ok(session.token.length >= 32);
+    }
+    const blocked = await signup('192.0.2.1', { 'X-Relay-Client-IP': '192.0.2.2', 'X-Forwarded-For': '192.0.2.2', 'X-Relay-Enrollment': 'unused-legacy-key' });
+    assert.equal(blocked.status, 429);
+    assert.match((await blocked.json()).error.message, /this network/);
+    assert.equal((await signup('192.0.2.2')).status, 201);
+    const oversized = await signup('192.0.2.3', {}, { padding: 'x'.repeat(2048) });
+    assert.equal(oversized.status, 413);
+    await mf.dispose();
+    mf = new Miniflare(options());
+    assert.equal((await signup('192.0.2.1')).status, 429);
+    assert.equal((await mf.dispatchFetch('https://relay.example.com/v1/state', { headers: { Authorization: `Bearer ${first.token}` } })).status, 200);
+    assert.equal((await mf.dispatchFetch('https://relay.example.com/health')).status, 200);
   } finally { await mf.dispose(); await rm(directory, { recursive: true, force: true }); }
 });

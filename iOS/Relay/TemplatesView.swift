@@ -13,6 +13,26 @@ struct TemplatesView: View {
     var body: some View {
         NavigationStack {
             List {
+                    Section {
+                        RelayCard {
+                            HStack(alignment: .top, spacing: 16) {
+                                Image(systemName: "text.bubble.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundStyle(RelayTheme.accent)
+                                    .frame(width: 54, height: 54)
+                                    .background(RelayTheme.wash, in: RoundedRectangle(cornerRadius: 17))
+                                VStack(alignment: .leading, spacing: 7) {
+                                    Text("Sound like you.")
+                                        .font(.system(size: 23, weight: .bold, design: .rounded))
+                                        .foregroundStyle(RelayTheme.ink)
+                                    Text("A thoughtful note starts here. Choose a role, refine the message, then preview it before anyone receives it.")
+                                        .font(.subheadline).foregroundStyle(RelayTheme.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .listRowInsets(EdgeInsets()).listRowBackground(Color.clear).listRowSeparator(.hidden)
+                    }
                     if !store.isConnected && !store.isDemo {
                         RelayNotice(text: "Connect your Relay service in Settings to save a template. You can explore a sample first.")
                     }
@@ -31,21 +51,24 @@ struct TemplatesView: View {
                                     Button {
                                         withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) { store.settings.selectTemplate(role) }
                                     } label: {
-                                        Text(RoleTemplate.name(role)).font(.subheadline.weight(.semibold))
-                                            .frame(maxWidth: .infinity, minHeight: 44)
+                                        VStack(spacing: 7) {
+                                            Image(systemName: roleSymbol(role)).font(.system(size: 18, weight: .medium))
+                                            Text(RoleTemplate.name(role)).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.82)
+                                        }
+                                            .frame(maxWidth: .infinity, minHeight: 72)
                                             .foregroundStyle((store.settings.selectedTemplate ?? "general") == role ? Color.white : RelayTheme.accent)
                                             .background {
                                                 if (store.settings.selectedTemplate ?? "general") == role {
-                                                    RoundedRectangle(cornerRadius: 12).fill(RelayTheme.button)
+                                                    RoundedRectangle(cornerRadius: 16).fill(RelayTheme.button)
                                                         .matchedGeometryEffect(id: "selectedTemplate", in: templateSelection)
-                                                } else { RoundedRectangle(cornerRadius: 12).fill(RelayTheme.accent.opacity(0.07)) }
+                                                } else { RoundedRectangle(cornerRadius: 16).fill(RelayTheme.wash) }
                                             }
                                     }.buttonStyle(.plain)
                                     .accessibilityAddTraits((store.settings.selectedTemplate ?? "general") == role ? .isSelected : [])
                                 }
                             }
                         }
-                    } header: { Text("Choose a role") } footer: { Text("Each role keeps its own wording. Save your selection before adding a job.") }
+                    } header: { Text("MESSAGE FOR") } footer: { Text("Each role keeps its own wording. Save your selection before adding a job.") }
                     Section("Subject") {
                         TextField("Email subject", text: $store.settings.subjectTemplate, axis: .vertical).lineLimit(2...4).accessibilityLabel("Email subject")
                     }
@@ -67,7 +90,15 @@ struct TemplatesView: View {
                         }
                     }
                     Section { ResumeCard().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
-                    Section { Button { showPreview = true } label: { Label("Preview sample email", systemImage: "eye") } }
+                    Section {
+                        Button { showPreview = true } label: {
+                            HStack {
+                                Label("Preview your message", systemImage: "eye")
+                                Spacer()
+                                Image(systemName: "arrow.up.right").foregroundStyle(RelayTheme.secondary)
+                            }
+                        }
+                    }
                     if store.hasUnsavedSettings {
                         Section { Button("Discard unsaved changes", role: .destructive) { showDiscard = true } }
                     }
@@ -86,6 +117,15 @@ struct TemplatesView: View {
                 Button("Discard changes", role: .destructive) { store.discardSettingsChanges() }
                 Button("Keep editing", role: .cancel) {}
             }
+        }
+    }
+
+    private func roleSymbol(_ role: String) -> String {
+        switch role {
+        case "software": "chevron.left.forwardslash.chevron.right"
+        case "support": "lifepreserver"
+        case "ai": "sparkles.rectangle.stack"
+        default: "person.crop.square"
         }
     }
 }

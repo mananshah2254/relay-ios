@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { DurableStore } from './store.mjs';
 import { nextSendTime } from './schedule.mjs';
 import { recipientAllowlist } from './recipient-policy.mjs';
@@ -9,18 +9,11 @@ import { AppError } from '../src/domain.mjs';
 
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
-const digest = value => createHash('sha256').update(value).digest();
-const same = (a, b) => timingSafeEqual(digest(a), digest(b));
 
 export default {
   async fetch(request, env) {
     try {
-      // A URL fragment is never transmitted by browsers; the app sends this
-      // private enrollment value as a header only when creating a new session.
-      const path = new URL(request.url).pathname;
-      if (path === '/v1/session' && (!env.ENROLLMENT_KEY || !same(request.headers.get('X-Relay-Enrollment') || '', env.ENROLLMENT_KEY))) {
-        return json({ error: { code: 'invite_required', message: 'Use your private Relay setup link to connect.' } }, 403);
-      }
+      // Preserve the existing object identity so public signup keeps all saved accounts.
       return await env.RELAY.get(env.RELAY.idFromName('private-pilot-v1')).fetch(request);
     } catch {
       return json({ error: { code: 'service_unavailable', message: 'Relay is temporarily unavailable. Please try again later.' } }, 503);
@@ -32,6 +25,7 @@ export class RelayPilot extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.tail = Promise.resolve();
+    this.networkKey = env.STORE_KEY_HEX;
     this.ready = ctx.blockConcurrencyWhile(async () => {
       const origin = new URL(env.PUBLIC_BASE_URL);
       if (origin.protocol !== 'https:' || origin.pathname !== '/' || origin.search || origin.hash || origin.username || origin.password) throw new Error('HTTPS origin required.');
@@ -55,11 +49,11 @@ export class RelayPilot extends DurableObject {
     await prior;
     try { await this.ready; return await action(); } finally { release(); }
   }
-  limit(key, maximum, duration) {
+  limit(key, maximum, duration, message = 'Please try again later.') {
     const now = Date.now();
     const sql = this.ctx.storage.sql;
     const row = sql.exec('SELECT start, count FROM relay_limits WHERE key = ?', key).toArray()[0];
-    if (row && row.start + duration > now && row.count >= maximum) throw new AppError('rate_limited', 'Please try again later.', 429);
+    if (row && row.start + duration > now && row.count >= maximum) throw new AppError('rate_limited', message, 429);
     sql.exec('INSERT OR REPLACE INTO relay_limits VALUES (?, ?, ?)', key, row && row.start + duration > now ? row.start : now, row && row.start + duration > now ? row.count + 1 : 1);
     sql.exec('DELETE FROM relay_limits WHERE start < ?', now - 86400000);
   }
@@ -104,8 +98,13 @@ export class RelayPilot extends DurableObject {
       return new Response(null, { status: 302, headers: { ...headers, Location: location } });
     }
     if (method === 'POST' && route === '/v1/session') {
-      this.limit('enrollment', 10, 3600000);
-      await body(request);
+      // Cloudflare overwrites CF-Connecting-IP at its edge. Never use a client-
+      // supplied forwarding header. Only a keyed digest enters persisted counters.
+      const network = createHmac('sha256', this.networkKey)
+        .update(request.headers.get('CF-Connecting-IP') || 'unknown').digest('hex');
+      this.limit(`signup:${network}`, 10, 3600000, 'Too many new workspaces from this network. Please try again in an hour.');
+      this.limit('public-signup', 100, 3600000, 'Relay is receiving many new signups. Please try again later.');
+      await body(request, 1024);
       return json(s.createSession(), 201);
     }
     const auth = request.headers.get('Authorization') || '';
@@ -148,14 +147,14 @@ export class RelayPilot extends DurableObject {
   }
 }
 
-async function body(request) {
+async function body(request, maximumBytes = 15 * 1024 * 1024) {
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('Content-Type') || '')) throw new AppError('content_type', 'Use application/json.', 415);
   const reader = request.body?.getReader();
   let length = 0; const chunks = [];
   if (reader) for (;;) {
     const { done, value } = await reader.read(); if (done) break;
     length += value.length;
-    if (length > 15 * 1024 * 1024) { await reader.cancel(); throw new AppError('body_too_large', 'Request exceeds 15 MiB.', 413); }
+    if (length > maximumBytes) { await reader.cancel(); throw new AppError('body_too_large', 'This request is too large.', 413); }
     chunks.push(Buffer.from(value));
   }
   let data;

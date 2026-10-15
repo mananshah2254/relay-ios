@@ -7,20 +7,30 @@ struct RelayActivityMark: View {
     var compact = false
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
-            let phase = reduceMotion ? 0.5 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.6) / 2.6
-            ZStack {
-                Capsule().fill(RelayTheme.accent.opacity(0.12)).frame(width: compact ? 36 : 100, height: 2)
-                HStack {
-                    Image(systemName: "person.crop.circle.fill")
-                    Spacer()
-                    Image(systemName: "envelope.circle.fill")
+            let phase = reduceMotion ? 0.0 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3.2) / 3.2
+            Group {
+                if compact {
+                    ZStack {
+                        Capsule().fill(RelayTheme.accent.opacity(0.17)).frame(width: 36, height: 2)
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(RelayTheme.accent)
+                            .offset(x: reduceMotion ? 0 : CGFloat(sin(phase * .pi * 2)) * 17)
+                    }.frame(width: 52, height: 28)
+                } else {
+                    ZStack {
+                        Circle().stroke(RelayTheme.accent.opacity(0.10), lineWidth: 1).frame(width: 124, height: 70)
+                        Circle().stroke(RelayTheme.accent.opacity(0.10), lineWidth: 1).frame(width: 84, height: 84)
+                        RoundedRectangle(cornerRadius: 25, style: .continuous)
+                            .fill(RelayTheme.wash).frame(width: 68, height: 68)
+                        Image(systemName: "envelope.open.fill")
+                            .font(.system(size: 27, weight: .light)).foregroundStyle(RelayTheme.accent)
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 17, weight: .medium)).foregroundStyle(RelayTheme.accent)
+                            .offset(x: reduceMotion ? 48 : CGFloat(cos(phase * .pi * 2)) * 62,
+                                    y: reduceMotion ? -20 : CGFloat(sin(phase * .pi * 2)) * 36)
+                    }.frame(width: 160, height: 110)
                 }
-                .font(.system(size: compact ? 14 : 30, weight: .light)).foregroundStyle(RelayTheme.accent.opacity(0.4))
-                Image(systemName: "paperplane.fill")
-                    .font(.system(size: compact ? 12 : 22, weight: .medium)).foregroundStyle(RelayTheme.accent)
-                    .offset(x: CGFloat(phase - 0.5) * (compact ? 28 : 82), y: -CGFloat(sin(phase * .pi)) * (compact ? 8 : 22))
-                    .opacity(reduceMotion ? 1 : sin(phase * .pi))
-            }.frame(width: compact ? 52 : 140, height: compact ? 28 : 72)
+            }
         }.accessibilityHidden(true)
     }
 }
@@ -93,23 +103,34 @@ extension View {
 }
 
 enum RelayTheme {
-    static let background = Color(uiColor: .systemGroupedBackground)
-    static let surface = Color(uiColor: .secondarySystemGroupedBackground)
-    static let ink = Color(uiColor: UIColor { traits in
-        .label
+    static let background = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.055, green: 0.075, blue: 0.11, alpha: 1) : UIColor(red: 0.975, green: 0.973, blue: 0.962, alpha: 1)
     })
-    static let secondary = Color(uiColor: .secondaryLabel)
+    static let surface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.105, green: 0.13, blue: 0.18, alpha: 1) : .white
+    })
+    static let ink = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.96, green: 0.97, blue: 1, alpha: 1) : UIColor(red: 0.09, green: 0.14, blue: 0.22, alpha: 1)
+    })
+    static let secondary = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.67, green: 0.72, blue: 0.78, alpha: 1) : UIColor(red: 0.42, green: 0.47, blue: 0.53, alpha: 1)
+    })
     static let accent = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.36, green: 0.69, blue: 1, alpha: 1) : UIColor(red: 0.0, green: 0.36, blue: 0.82, alpha: 1)
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.70, green: 0.67, blue: 1, alpha: 1) : UIColor(red: 0.35, green: 0.31, blue: 0.72, alpha: 1)
     })
     static let green = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.46, green: 0.80, blue: 0.64, alpha: 1) : UIColor(red: 0.19, green: 0.43, blue: 0.32, alpha: 1)
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.48, green: 0.83, blue: 0.71, alpha: 1) : UIColor(red: 0.12, green: 0.47, blue: 0.36, alpha: 1)
     })
     static let amber = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.95, green: 0.73, blue: 0.40, alpha: 1) : UIColor(red: 0.57, green: 0.36, blue: 0.09, alpha: 1)
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.98, green: 0.75, blue: 0.47, alpha: 1) : UIColor(red: 0.61, green: 0.34, blue: 0.10, alpha: 1)
     })
-    static let line = Color.primary.opacity(0.075)
-    static let button = Color(red: 0.04, green: 0.36, blue: 0.82)
+    static let line = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.09) : UIColor(red: 0.15, green: 0.19, blue: 0.28, alpha: 0.08)
+    })
+    static let button = Color(red: 0.34, green: 0.29, blue: 0.71)
+    static let wash = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.18, green: 0.17, blue: 0.30, alpha: 1) : UIColor(red: 0.93, green: 0.92, blue: 0.98, alpha: 1)
+    })
 }
 
 struct RelayCard<Content: View>: View {
@@ -119,8 +140,9 @@ struct RelayCard<Content: View>: View {
         content
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RelayTheme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(RelayTheme.line, lineWidth: 0.5))
+            .background(RelayTheme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(RelayTheme.line, lineWidth: 1))
+            .shadow(color: RelayTheme.ink.opacity(0.035), radius: 16, y: 7)
     }
 }
 
@@ -134,7 +156,7 @@ struct RelayPrimaryButtonStyle: ButtonStyle {
             .padding(.vertical, 16)
             .padding(.horizontal, 18)
             .foregroundStyle(.white)
-            .background(RelayTheme.button.gradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(LinearGradient(colors: [RelayTheme.button, RelayTheme.button.opacity(0.86)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .opacity(!isEnabled ? 0.4 : configuration.isPressed ? 0.85 : 1)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
             .animation(reduceMotion ? nil : .smooth(duration: 0.18), value: configuration.isPressed)
@@ -149,7 +171,7 @@ struct RelaySecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding(14)
             .foregroundStyle(RelayTheme.accent)
-            .background(RelayTheme.accent.opacity(configuration.isPressed ? 0.15 : 0.085), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .background(RelayTheme.wash.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
             .opacity(isEnabled ? 1 : 0.4)
     }
 }
@@ -159,7 +181,7 @@ struct RelaySectionHeading: View {
     var detail: String? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(title).font(.title3.weight(.semibold)).foregroundStyle(RelayTheme.ink)
+            Text(title).font(.title3.weight(.bold)).foregroundStyle(RelayTheme.ink)
             if let detail { Text(detail).font(.subheadline).foregroundStyle(RelayTheme.secondary) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -216,7 +238,7 @@ struct RelayEmptyState: View {
         VStack(spacing: 14) {
             Image(systemName: symbol).font(.system(size: 31, weight: .light)).foregroundStyle(RelayTheme.accent)
                 .frame(width: 72, height: 72).background(RelayTheme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 23))
-            Text(title).font(.title3.weight(.semibold)).foregroundStyle(RelayTheme.ink)
+            Text(title).font(.title3.weight(.bold)).foregroundStyle(RelayTheme.ink)
             Text(detail).font(.subheadline).foregroundStyle(RelayTheme.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
@@ -237,7 +259,7 @@ struct RelayNotice: View {
         .foregroundStyle(color)
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+        .background(color.opacity(0.09), in: RoundedRectangle(cornerRadius: 18))
     }
 }
 
@@ -251,7 +273,7 @@ struct RelayAvatar: View {
         }
         .foregroundStyle(RelayTheme.accent)
         .frame(width: 48, height: 48)
-        .background(RelayTheme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 15))
+        .background(RelayTheme.wash, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityHidden(true)
     }
 }
@@ -259,7 +281,7 @@ struct RelayAvatar: View {
 extension View {
     func relayField() -> some View {
         self.padding(13)
-            .background(RelayTheme.background, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(RelayTheme.line))
+            .background(RelayTheme.background, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(RelayTheme.line, lineWidth: 1))
     }
 }

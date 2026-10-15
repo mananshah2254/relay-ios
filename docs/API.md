@@ -6,7 +6,9 @@ The native app and Share Extension use the same API. Paths are relative to the c
 
 `POST /v1/session` with `{}` creates an opaque device session and returns `{ "token": "…", "userId": "…" }`. All other app endpoints require `Authorization: Bearer <token>`. The Google browser callback authenticates using its one-time OAuth state instead. Session tokens belong in the shared Keychain, never UserDefaults or analytics.
 
-The initial implementation uses device sessions. It does not yet provide cross-device account recovery. Keep the existing token when reconnecting to the same service. Public deployment requires operational controls for enrollment and account recovery.
+The hosted service accepts public device-session creation without an invitation header. Signup is limited to 10 attempts per network per hour and 100 service-wide per hour, with a 1 KiB signup-body limit. Network counters use a keyed digest of Cloudflare's edge-provided address and expire after 24 hours; client forwarding headers are ignored. All workspace data and actions still require the private session token. Existing tokens continue working after the change.
+
+The initial implementation uses device sessions. It does not yet provide cross-device account recovery. Keep the existing token when reconnecting to the same service. The free-hosted service retains its existing 1,000-workspace and 32 MiB snapshot limits; public enrollment is not an assertion of unlimited capacity.
 
 ## Endpoints
 

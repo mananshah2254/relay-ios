@@ -1,4 +1,24 @@
-# Cloudflare private pilot
+# Cloudflare hosted service
+
+## Public signup (version 1.2)
+
+The hosted `/v1/session` endpoint no longer requires an invitation. Each device
+receives an independent opaque token; all workspace endpoints still authenticate
+that token. Existing tokens and the Durable Object identity are preserved.
+Signup allows 10 attempts per network per hour and 100 overall per hour, with a
+1 KiB body limit. Cloudflare's edge-provided connection address is reduced to an
+HMAC counter key; caller-supplied forwarding headers are ignored. Counters expire
+after 24 hours and are removed on the next request. See Cloudflare's
+[header documentation](https://developers.cloudflare.com/fundamentals/reference/http-headers/).
+The stored legacy `ENROLLMENT_KEY` is no longer consulted. Do not rotate or delete
+the storage encryption key: it remains essential to existing accounts.
+
+App versions before 1.2 still display their legacy invitation UI. They can keep
+using existing sessions. Version 1.2 introduces the public **Get started** button.
+The service's existing capacity limits below still apply; account recovery across
+devices and scalable storage remain separate work.
+
+The remaining dated notes describe the original pilot deployment.
 
 ## External outreach enabled
 
