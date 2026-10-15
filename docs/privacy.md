@@ -5,11 +5,13 @@ permalink: /privacy/
 
 # Relay privacy policy
 
-Effective September 28, 2026. Relay is operated by Manan Shah. Contact [mananshah03690@gmail.com](mailto:mananshah03690@gmail.com) for privacy requests.
+Effective October 14, 2026. Relay is operated by Manan Shah. Contact [mananshah03690@gmail.com](mailto:mananshah03690@gmail.com) for privacy requests.
 
 ## Information used by Relay
 
 When you use the live service, Relay processes your sender name, connected Gmail account identity and authorization tokens, service session identifier, saved settings and templates, job links and details, company/domain selections, discovered professional contacts, prepared and sent message content, optional PDF résumé, and queue status. Sharing a job may also send its link or text to a supported job-posting service to retrieve available details. The iPhone stores a service session token in Keychain and nonsecret settings and pending share imports in its app container.
+
+To limit automated signup abuse, Relay processes the connection address provided by Cloudflare and stores a keyed, one-way digest with a short-lived request counter. This counter is not attached to a Relay workspace, is not used for tracking or location, and expires after 24 hours. The next service request removes expired counters. Relay does not store the raw address in these counters.
 
 ## How information is used and shared
 

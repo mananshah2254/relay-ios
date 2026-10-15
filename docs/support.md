@@ -9,12 +9,14 @@ For help or privacy requests, email [mananshah03690@gmail.com](mailto:mananshah0
 
 ## Getting started
 
-1. Join Relay with the private invitation supplied by the service operator.
+1. In version 1.2 or later, open Settings and tap **Get started**. No invitation or access code is required. Earlier versions may still show an invite field; update when the new version is available.
 2. Connect the Gmail account you want to send from and your own supported contact-discovery account.
 3. Add your sender name, role template, and optional PDF résumé.
 4. Share a job link or enter a role and company, then verify the company website and message recipients before approving outreach.
 
 The app provides offline sample data for exploration. Sample data cannot send email.
+
+Your connection is saved on your device. Existing users do not need to create another workspace after updating. Automatic recovery of a workspace on another device is not currently available; contact support before deleting your account or clearing saved credentials.
 
 ## Common issues
 
