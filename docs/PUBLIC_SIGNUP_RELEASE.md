@@ -37,15 +37,22 @@ is not implemented. Do not delete an existing account to test the setup screen.
   **Get started** is present and there is no invitation field.
 - Updated public setup and privacy pages were deployed through GitHub Pages.
 
-## Remaining release checks
+## Submission on October 15, 2026
 
-Version 1.2 has **not been submitted for review**. App Store Connect's privacy page
-and Google's verification console failed to load during the final checks.
-Before submission, finish the Apple privacy-label disclosure for the short-lived
-network abuse counters (app functionality/security, no advertising or tracking),
-then verify the saved draft and submit it. Obtain approval for any new privacy
-publication attestation. Google verification/audience status still needs checking
-in project `relay-508804`; public Relay signup does not remove Google-side limits.
+Version **1.2 (build 6) was submitted to Apple**. App Store Connect confirmed
+**Waiting for Review** and **1 Item Submitted**. Automatic release after approval
+remains selected, with immediate availability to all users rather than phased release.
+
+The updated privacy label was published with the account holder's explicit
+approval. It adds Other Data for the short-lived signup-security counters,
+used for App Functionality, conservatively declared linked to identity because
+the digest is network-address-derived, and not used for tracking. The existing
+six data categories are unchanged.
+
+Google verification/audience status still needs checking in project
+`relay-508804`: the console repeatedly failed to load. Public Relay signup does
+not remove Google-side limits. Apple submission is not approval or confirmation
+of unlimited Gmail OAuth access.
 
 Version 1.1 (build 5) was already approved when this work began. App Store users
 need the 1.2 release for the new setup UI. Earlier installations can continue to
