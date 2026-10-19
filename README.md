@@ -28,10 +28,13 @@ The first backend runs one process with encrypted files on a persistent disk. It
 
 ## Start the backend
 
-Requires Node.js 22 or newer. No `npm install` is needed.
+Requires Node.js 22 or newer. Install the server's development dependencies
+before running tests; they include Miniflare and Wrangler. The local server
+runtime itself has no third-party package dependencies.
 
 ```sh
 cd server
+npm ci
 npm run setup
 npm test
 npm start
