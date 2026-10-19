@@ -7,11 +7,15 @@ This is the small backend used by the Relay iOS app. It owns the Hunter and Gmai
 Requires Node.js 22 or newer. From this directory:
 
 ```sh
+npm ci
 npm run setup
 # edit .env and add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET when Gmail is needed
 npm test
 npm start
 ```
+
+`npm ci` installs Wrangler and Miniflare for the Cloudflare build and tests.
+The local Node server has no third-party runtime dependencies.
 
 `npm run preflight` reports missing local configuration without exposing secrets.
 For a single VM behind HTTPS, see [the prepared pilot deployment](deploy/README.md).
